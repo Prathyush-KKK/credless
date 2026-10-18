@@ -60,9 +60,20 @@ const LAUNCH_METHODS = new Set([
   'newBrowserCDPSession',
 ]);
 const CONNECT_RECEIVERS = new Set(['chromium', 'firefox', 'webkit', '_electron', '_android']);
-const OPTION_NAMES = new Set(['launchOptions', 'proxy', 'ignoreDefaultArgs', 'executablePath', 'connectOptions']);
+// `egressLookup` is the kit's own self-test option (a resolver for the persona proxies): never in a real suite.
+const OPTION_NAMES = new Set([
+  'launchOptions',
+  'proxy',
+  'ignoreDefaultArgs',
+  'executablePath',
+  'connectOptions',
+  'egressLookup',
+]);
 const PROCESS_NAMES = new Set(['process']);
 const TEST_FILE = /\.(?:[cm]?[jt]s|tsx|jsx)$/;
+// A `*.config.*` beside the tests (the kit's, Playwright's) reads the harness's environment by design: a directory
+// walk leaves it out; a config file named on the command line is checked like any other.
+const CONFIG_FILE = /\.config\.(?:[cm]?[jt]s)$/;
 
 export const RULES = {
   'module-import':
@@ -93,7 +104,8 @@ export function listTestFiles(targets: string[], cwd = process.cwd()): string[] 
       if (entry.name === 'node_modules' || entry.name.startsWith('.')) continue;
       const full = path.join(dir, entry.name);
       if (entry.isDirectory()) walk(full);
-      else if (TEST_FILE.test(entry.name) && !entry.name.endsWith('.d.ts')) out.push(full);
+      else if (TEST_FILE.test(entry.name) && !entry.name.endsWith('.d.ts') && !CONFIG_FILE.test(entry.name))
+        out.push(full);
     }
   };
   for (const target of targets) {
@@ -276,7 +288,7 @@ const REGEX_RULES: Array<{ pattern: RegExp; rule: RuleName | 'specifier'; detail
     detail: (m) => `${m[1]}.connect()`,
   },
   {
-    pattern: /(?:^|[^.\w$])(launchOptions|proxy|ignoreDefaultArgs|executablePath|connectOptions)\s*[:,}]/g,
+    pattern: /(?:^|[^.\w$])(launchOptions|proxy|ignoreDefaultArgs|executablePath|connectOptions|egressLookup)\s*[:,}]/g,
     rule: 'launch-option',
     detail: (m) => `option ${m[1]}`,
   },

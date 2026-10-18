@@ -3,9 +3,10 @@
 // hand with `--web-port 4310 --api-port 4311`. The runner key is a stand-in the demo writes to the file named by
 // CREDLESS_DEMO_KEY_FILE; without that variable the `env` key source applies (CREDLESS_RUNNER_KEY), so a person can
 // point the suite at a demo running with the key from apps/demo/src/fake-secrets.json.
-import { defineConfig } from 'credless/config';
+// The CLI imports this file with plain Node before any build (`credless demo` picks the target from it), so the
+// kit's source is named by path; a project that installs the package writes `from 'credless/config'`.
+import { defineConfig } from '../../../packages/kit/src/config/index.ts';
 
-// biome-ignore lint/style/noRestrictedGlobals: the config is the one file of the suite that reads the harness's environment; tests read none
 const env = process.env;
 const web = env.DEMO_WEB ?? 'http://127.0.0.1:4310';
 const api = env.DEMO_API ?? 'http://127.0.0.1:4311';
@@ -30,5 +31,6 @@ export default defineConfig({
   key: keyFile ? { source: 'file', path: keyFile } : { source: 'env' },
   signals: { sessionCookies: ['sid'], csrf: { cookie: 'csrf', header: 'X-CSRF-Token' } },
   control: { module: './demo.control.ts' },
-  evidence: { bootCover: '[data-boot-cover]' },
+  // kept evidence lands in apps/demo/reports (the action's `reports-dir` for the dogfood run says the same)
+  evidence: { bootCover: '[data-boot-cover]', reportsDir: '../reports' },
 });

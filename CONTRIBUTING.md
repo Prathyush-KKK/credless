@@ -12,7 +12,7 @@ docs fixes.
 git clone https://github.com/Prathyush-KKK/credless && cd credless
 corepack enable                      # pnpm, the version package.json pins
 pnpm install --frozen-lockfile       # install scripts are off for every dependency (.npmrc); keep it that way
-pnpm check                           # biome, typecheck, unit tests, contract, skill copy, catalog
+pnpm check                           # biome, typecheck, unit tests, contract, catalog, skill copy and shape, test-code gate, org gate, action tests
 pnpm test                            # check plus the self-tests through the runner (scrub, scan and leak check run too)
 ```
 

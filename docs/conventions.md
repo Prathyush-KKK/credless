@@ -2,7 +2,8 @@
 
 Frozen by Task 0 (plan §11). Every follow-up task codes against this file and `packages/kit/src/types.ts`; a task
 that needs a change proposes a diff to Task 0's owner and never applies it on its own. Where this file and
-`types.ts` state the same thing, `types.ts` is the one the code reads.
+`types.ts` state the same thing, `types.ts` is the one the code reads. The proposals the v0.1 tasks made, and what
+the assembly did with each, are in `docs/DECISIONS.md`.
 
 ## 1. Names and the rename
 
@@ -11,6 +12,11 @@ The kit's final name is not chosen. Placeholders: package `kit`, CLI `kit`, env 
 is: those three constants, `name` and the `bin` key in `packages/kit/package.json`, and the `kit` dependency key in
 `apps/demo/package.json`. Nothing else spells the name; messages, env names, staging paths and the canary host are
 built from the constants. Root scripts filter by path (`--filter ./packages/kit`), not by name.
+
+Also spelled by the name, so a rename touches them too: `packages/kit/templates/` (the file `credless.config.ts` and
+the import specifiers inside the templates), `plugins/credless/` (the folder, `plugin.json`, `hooks.json`),
+`.claude-plugin/marketplace.json`, the skill text, `apps/demo/e2e/credless.config.ts`, and the default paths of
+`scripts/skill-sync.mjs` and `scripts/skill-validate.mjs` (repo-root scripts that import nothing from `brand.ts`).
 
 ## 2. Environment variables (`ENV` in types.ts)
 
@@ -34,6 +40,8 @@ built from the constants. Root scripts filter by path (`--filter ./packages/kit`
 | `CREDLESS_GUARD_OUTSIDE` | person | guard | `fail` (default) or `note` |
 | `CREDLESS_A11Y` | person | fixtures | `gate` makes serious/critical axe findings fail |
 | `CREDLESS_WEB_URL`, `CREDLESS_API_URL` | person | config loader | origin overrides; must pass the same checks |
+| `CREDLESS_WORKER_PROXY_URL` | global setup (`loopback`); `run` in v0.2 (a URL) | the worker shim | unset or `off`: inert; `loopback`: workers may dial loopback only; a URL: that proxy too, published as `HTTP(S)_PROXY`. A person sets `off` to diagnose a false positive |
+| `CREDLESS_DEMO_KEY_FILE` | the harness (`playwright.config.ts`) or `credless demo` | `apps/demo/src/server.ts`, the demo configs | the 0600 file holding the demo's stand-in runner key; the demo writes it with `--write-key <same path>` and the config's `file` key source reads it |
 
 No other `KIT_*` variable exists without a row here. Nothing secret is ever passed as a CLI argument.
 
@@ -44,7 +52,7 @@ and the run failed because a code path leaked). `2` usage: unknown or production
 lock held past `--wait`, no key source, doctor refused. `4` the evidence is not safe to keep: post-run failed or
 something secret-shaped survived the scrub; the staging folder is deleted. The GitHub Action exits with the same
 code. Post-run writes its marker `.post-run-done` (containing the code) last; a run folder without the marker is
-never moved out of staging.
+never moved out of staging. The marker travels with the folder: a kept `reports/<run id>/` always has it.
 
 ## 4. Test API: base path, headers, handles
 
@@ -81,7 +89,9 @@ entry: `about`, `typeSecret`, `clearSecretField`, `see`, `notSee`, `Secret`, `ex
 Annotations `about()` writes: `source`, `expected`. Attachments the fixtures write: `test-api-calls` (method, path,
 status, ms per call), `<persona>-<list>` for the guard lists (`outside`, `third-party`, `dev-hosts`,
 `analytics-blocked`, `api-errors`, `cancelled`), `<persona>-a11y` (JSON). A passed test that opened a screen and
-saved no shot fails ("opened a screen but saved no screenshot").
+saved no shot fails ("opened a screen but saved no screenshot"). The guard's violation for an unlisted host reads
+`request to an unlisted host: <method> <url>`; SUMMARY.md's "Hosts outside the run" table is built from that phrase
+and from the guard attachments, so the wording is part of the contract.
 
 ## 7. Evidence folder (`EVIDENCE`)
 
@@ -107,6 +117,10 @@ nested zips and the base64 zip embedded in the HTML report; traces, results.json
 error-context.md, logs) then scan (read-only; lists file and kind, never a value) then quarantine (a file with a
 surviving finding is deleted and listed) then contact sheets, COVERAGE, FLAKES, SUMMARY, then the marker, then
 `mv` to `reports/<run id>/`. Anything else (exit 4, a crash, a kill before the marker): `rm -rf` of the staging run.
+
+Evidence key fallback: when `CREDLESS_EVIDENCE_KEY` is unset (a run not started by the CLI) the fixtures and the scrub
+key the HMACs with the run id instead; a code is hashed with its separators removed, and the scrub also tries the raw
+form.
 
 ## 8. Secrets: handover and handling
 
@@ -155,6 +169,11 @@ Ports: web and api listen on ephemeral loopback ports and print one line to stdo
 (an HTTP server that counts hits and destroys upgrades; a request reaching it is a leak) and UDP `127.0.0.1:3478`
 (counts datagrams: STUN/TURN from WebRTC).
 
+The demo writes its stand-in runner key with `--write-key <file>` (mode 0600, never overwriting) and both configs
+(`packages/kit/credless.config.ts`, `apps/demo/e2e/credless.config.ts`) read it through `CREDLESS_DEMO_KEY_FILE` with
+the `file` key source; without the variable the `env` source applies (a demo started by hand with the key from
+`fake-secrets.json`). The harness (`packages/kit/test/helpers/demo-server.ts`) and `credless demo` both do this.
+
 Demo config: `targets.selftest = { web: DEMO_WEB, api: DEMO_API, kind: 'local' }`;
 `production = { domains: ['example.com'], words: ['prod', 'production'], nonProductionPattern: '^dev\\.example\\.com$' }`;
 `hosts.thirdParty = []`, `hosts.analytics` = the kit's defaults (which include `*.googletagmanager.com`).
@@ -197,8 +216,8 @@ password) live in `apps/demo/src/fake-secrets.json` and are scanned for like rea
 Tasks never edit a `package.json`. Everything the eight tasks need is declared: runtime `zod`, `yaml`, `fflate`,
 `@axe-core/playwright`; peer `@playwright/test >=1.64 <2` (dev-pinned 1.64.1); optional `@napi-rs/keyring`,
 `playwright-ctrf-json-reporter`; dev `vitest`, `tsdown`, `typescript 5.9`, `@types/node 24`, `@biomejs/biome`,
-`publint`, `@arethetypeswrong/cli`, `@changesets/cli`. A task that needs more appends a line to `.needs-deps.md`
-and continues with what it can. Install scripts are off (`.npmrc`, `pnpm-workspace.yaml`); a package that needs one
+`publint`, `@arethetypeswrong/cli`, `@changesets/cli`; `apps/demo` declares `vitest` for its own server test. A new
+dependency is a line in `docs/DECISIONS.md` with the reason, never a silent addition. Install scripts are off (`.npmrc`, `pnpm-workspace.yaml`); a package that needs one
 is a decision, not a line.
 
 ## 12. Toolchain constraints
@@ -207,10 +226,13 @@ Node ≥ 24.12 is what the published package declares; the workspace also runs o
 erasable (no enums, no parameter properties, no namespaces, no `import =`) and relative imports carry the `.ts`
 extension (`rewriteRelativeImportExtensions`). Type check with TypeScript 5.9 (`pnpm typecheck`); TypeScript 7 is
 evaluated in v0.2. ESM only. Biome 2.5 formats and lints (120 columns, single quotes, trailing commas); the
-override for `**/e2e/**`, `test/selftest/**` and `templates/**` forbids network and process imports and the
-globals `fetch` and `process` (the AST gate `check-tests` is the authoritative one). Playwright test files use
-`test.step` and the kit's fixtures only; no `chromium.launch`, `newContext`, `request.newContext`, `proxy` or
-`launchOptions` in test dirs.
+override for `**/e2e/**`, `test/selftest/**` and `packages/kit/templates/**` forbids network and process imports and
+the globals `fetch` and `process` (the AST gate `check-tests` is the authoritative one); a `*.config.ts` in those
+directories is exempt from the override, and `check-tests` skips it in a directory walk (a config reads the harness's
+environment by design) while still checking a file named on the command line. `packages/kit/test/helpers/` is the
+one place self-test harness code may use the file system and processes. Playwright test files use `test.step` and
+the kit's fixtures only; no `chromium.launch`, `newContext`, `request.newContext`, `proxy`, `launchOptions` or
+`egressLookup` in test dirs.
 
 ## 13. No organisation-specific strings
 

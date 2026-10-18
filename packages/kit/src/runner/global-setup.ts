@@ -19,8 +19,10 @@ import {
   Control,
   createKeySource,
   loadCatalog,
-  loadRunConfig,
+  loadContractRoutes,
+  loadProjectConfig,
   mailSinkFor,
+  mergeRoutes,
   runnerKeyFromRunner,
   startBroker,
   TestApiClient,
@@ -68,7 +70,7 @@ function writeJson(file: string, value: unknown): void {
 }
 
 export default async function globalSetup(): Promise<() => Promise<void>> {
-  const config = await loadRunConfig({ env: process.env });
+  const config = await loadProjectConfig({ env: process.env });
   const project = findProject(process.cwd());
   const local = config.endpoints.kind === 'local';
   const catalogFile = path.resolve(project.root, config.kit.personas.catalog);
@@ -120,13 +122,14 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
     keyHeader,
     headers,
   });
+  const ns = `${config.slot}0`;
   const control = new Control({
     api: direct,
     catalog,
-    ns: `${config.slot}0`,
+    ns,
     runId: config.runId,
     webOrigin: config.endpoints.web,
-    mail: mailSinkFor(direct, config.kit.mail),
+    mail: await mailSinkFor(direct, config.kit.mail, { ns, catalog }),
   });
   const health: Health = await control.health();
   meta.health = {
@@ -146,11 +149,14 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
     );
   }
 
+  // The broker's allowlist is the core contract plus the app's (`testApi.contract`), the same table the workers'
+  // client uses: an extension route the control calls must be forwarded, anything else is refused there.
+  const contract = config.kit.testApi?.contract;
   const broker = await startBroker({
     apiOrigin: config.endpoints.testApi,
     key,
     keyHeader,
-    routes: CORE_ROUTES,
+    routes: contract ? mergeRoutes(CORE_ROUTES, loadContractRoutes(contract)) : CORE_ROUTES,
     basePath,
     forwardHeaders: ['accept', 'content-type', 'accept-language', ...Object.keys(headers)],
   });

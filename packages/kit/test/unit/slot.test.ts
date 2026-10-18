@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { checkSlot, resolveSlot, SlotError, slotFilePath } from '../../src/runner/slot.ts';
-import { cli, makeProject, type TempProject } from './helpers/tmp-project.ts';
+import { cli, configSource, makeProject, type TempProject } from './helpers/tmp-project.ts';
 
 const made: TempProject[] = [];
 afterEach(() => {
@@ -98,6 +98,14 @@ describe('Q02 through the CLI', () => {
 
   it('refuses a production-shaped target before the slot question', () => {
     const p = project();
+    // The loader refuses the whole config once a target points at production, whichever target is asked for.
+    fs.writeFileSync(
+      p.configFile,
+      configSource({
+        reportsDir: p.reportsDir,
+        extraTargets: ["prodlike: { web: 'https://app.prod.example', api: 'https://api.prod.example' },"],
+      }),
+    );
     const r = cli(p, ['run', '--target', 'prodlike', '--native', '--slot', 'e']);
     expect(r.status).toBe(2);
     expect(r.stderr).toMatch(/production/);

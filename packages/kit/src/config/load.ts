@@ -258,12 +258,24 @@ export function loadRunConfig(
   );
   const reportDir = path.resolve(env[ENV.REPORT_DIR] || path.join(stagingDir, runId));
 
+  // A relative module reference is relative to the config file, like the catalog and the contract, never to
+  // whichever directory the process started in (the fixtures and the CLI may run from different places).
+  const resolveModule = (ref: string): string => (ref.startsWith('.') ? path.resolve(configDir, ref) : ref);
   const kit: KitConfig = {
     ...kitConfig,
     personas: { ...kitConfig.personas, catalog: path.resolve(configDir, kitConfig.personas.catalog) },
     testApi: kitConfig.testApi?.contract
       ? { ...kitConfig.testApi, contract: path.resolve(configDir, kitConfig.testApi.contract) }
       : kitConfig.testApi,
+    control: kitConfig.control ? { module: resolveModule(kitConfig.control.module) } : kitConfig.control,
+    session:
+      kitConfig.session?.provider === 'module'
+        ? { ...kitConfig.session, module: resolveModule(kitConfig.session.module) }
+        : kitConfig.session,
+    mail:
+      kitConfig.mail?.sink === 'module'
+        ? { ...kitConfig.mail, module: resolveModule(kitConfig.mail.module) }
+        : kitConfig.mail,
   };
   return {
     target: targetName,

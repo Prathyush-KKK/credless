@@ -1,4 +1,11 @@
 // `<kit>/config` (plan §4.1): `defineConfig`, the zod schema and the loader.
+
+export {
+  globalSetupPath,
+  type KitPlaywrightConfig,
+  type KitPlaywrightOptions,
+  kitPlaywrightConfig,
+} from '../runner/playwright-config.ts';
 export type {
   BrowserProjectConfig,
   ControlRef,
@@ -21,7 +28,6 @@ export type {
   TraceMode,
 } from '../types.ts';
 export { DEFAULTS, ENV, PATTERNS } from '../types.ts';
-
 export {
   assertNoProductionOverlap,
   assertTargetUrl,

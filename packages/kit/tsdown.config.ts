@@ -10,6 +10,10 @@ export default defineConfig({
     server: 'src/server/index.ts',
     reporter: 'src/reporter/index.ts',
     cli: 'src/cli.ts',
+    // Loaded by path, never through the cli bundle: a consumer's Playwright config names the global setup, and `run`
+    // gives the workers the shim with `--import` (spawn.ts finds it beside cli.js).
+    'global-setup': 'src/runner/global-setup.ts',
+    'worker-shim': 'src/runner/worker-shim.ts',
   },
   format: 'esm',
   platform: 'node',
@@ -20,7 +24,9 @@ export default defineConfig({
   dts: true,
   clean: true,
   sourcemap: false,
-  // Peers and optional natives stay external; the kit never bundles Playwright.
+  // Peers and optional natives stay external; the kit never bundles Playwright. `typescript` is a devDependency
+  // `check-tests` imports dynamically when the project has one (it falls back to its regex engine otherwise): 8 MB
+  // that must never end up in the bundle.
   deps: {
     neverBundle: [
       /^@playwright\//,
@@ -29,6 +35,7 @@ export default defineConfig({
       '@napi-rs/keyring',
       'playwright-ctrf-json-reporter',
       '@axe-core/playwright',
+      'typescript',
     ],
   },
 });

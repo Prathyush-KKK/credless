@@ -37,7 +37,7 @@ describe('Q03 through the CLI', () => {
       const standIn = 'KIT-DOCTOR-KEY-STANDIN-6c1f';
       const env = { PATH: `${bin}${path.delimiter}${process.env.PATH ?? ''}`, CREDLESS_RUNNER_KEY: standIn };
       const r = cli(p, ['doctor', '--target', 'dev', '--slot', 'e', '--offline', '--security'], env);
-      expect(r.all).toContain('exec op (2 arguments): op is installed');
+      expect(r.all).toContain('(preset op; not run by doctor): op is installed');
       expect(r.all).toContain('slot e (from --slot)');
       expect(r.all).toContain('not probed (--offline)');
       expect(r.all).toContain('Security layers');

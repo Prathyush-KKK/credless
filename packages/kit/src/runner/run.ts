@@ -23,7 +23,7 @@ import {
   type RunOptions,
   type SecretValue,
 } from '../types.ts';
-import { createKeySource, loadRunConfig, newRunId } from './deps.ts';
+import { createKeySource, loadProjectConfig, newRunId } from './deps.ts';
 import {
   DOCKER_STAGING,
   dockerAvailable,
@@ -125,7 +125,7 @@ export async function run(input: RunInput): Promise<ExitCode> {
   delete loaderEnv[ENV.SIGNIN_PASSWORD];
   let config: RunConfig;
   try {
-    config = await loadRunConfig({ configPath: project.configFile, env: loaderEnv });
+    config = await loadProjectConfig({ configPath: project.configFile, cwd, env: loaderEnv });
   } catch (error) {
     return usage(message(error));
   }
@@ -234,6 +234,8 @@ export async function run(input: RunInput): Promise<ExitCode> {
           cwd: project.root,
           env: base,
           ...io,
+          // codes the fixtures hand out during the run (`.sensitive-hashes`) are redacted from the suite's output too
+          redactDir: dir,
         });
         return result.code ?? 128;
       }
@@ -275,6 +277,13 @@ export async function run(input: RunInput): Promise<ExitCode> {
       String(suiteExit),
     ];
     if (runB) postArgs.push('--compare', inRun(mode, staging.dir, path.join(staging.dir, runB)));
+    // What the scrub treats as a session cookie, a credential header and a one-time code comes from the config.
+    const signals = config.kit.signals;
+    const cookieNames = [...(signals?.sessionCookies ?? []), ...(signals?.csrf ? [signals.csrf.cookie] : [])];
+    const headerNames = [config.kit.testApi?.keyHeader, signals?.csrf?.header].filter((h): h is string => Boolean(h));
+    if (cookieNames.length) postArgs.push('--cookie-names', cookieNames.join(','));
+    if (headerNames.length) postArgs.push('--header-names', headerNames.join(','));
+    if (config.kit.evidence?.codeShape) postArgs.push('--code-shape', config.kit.evidence.codeShape);
     const postEnv: Record<string, string> = {
       ...commonEnv,
       [ENV.RUN_ID]: runA,

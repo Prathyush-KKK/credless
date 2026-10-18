@@ -4,11 +4,12 @@
 import { execFile } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
+import readline from 'node:readline/promises';
 import { CLI_NAME, KIT_NAME } from '../brand.ts';
 import { DEFAULTS, EVIDENCE, EXIT, type ExitCode } from '../types.ts';
 import { checkTests, type Engine, formatFinding } from './check-tests.ts';
 import { demo } from './demo.ts';
-import { compare, scan, scrub, summary, writeTemplates } from './deps.ts';
+import { compare, DEFAULT_ANSWERS, type InitAnswers, scanDir, scanExitCode, scrubDir, writeTemplates } from './deps.ts';
 import { doctor } from './doctor.ts';
 import { kitVersion } from './global-setup.ts';
 import { health, seed } from './health.ts';
@@ -179,6 +180,36 @@ function openWithDesktop(file: string): void {
   });
 }
 
+const INIT_NEXT = `
+Next:
+  - if you use Claude Code, merge .claude/${KIT_NAME}-settings.snippet.json into .claude/settings.json (the deny rules
+    are a backstop, not a boundary)
+  - in .github/workflows/e2e.yml, pin owner/${KIT_NAME}/action@v0 to a release tag or a commit SHA
+  - ${CLI_NAME} doctor --offline checks the result
+`;
+
+/**
+ * The answers `init` writes into the templates: the flags, then a prompt for what is missing when a person is at
+ * the terminal, else the defaults (`--yes`, CI, a pipe). Nothing asked here is secret: a target name and two origins.
+ */
+async function askInitAnswers(given: InitAnswers, yes: boolean): Promise<InitAnswers> {
+  const complete = given.target !== undefined && given.web !== undefined && given.api !== undefined;
+  if (yes || complete || !process.stdin.isTTY || !process.stdout.isTTY) return given;
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  try {
+    const ask = async (label: string, fallback: string): Promise<string> =>
+      (await rl.question(`${label} [${fallback}]: `)).trim() || fallback;
+    return {
+      target:
+        given.target ?? (await ask('target name (dev, staging, local; never production)', DEFAULT_ANSWERS.target)),
+      web: given.web ?? (await ask('web app origin', DEFAULT_ANSWERS.web)),
+      api: given.api ?? (await ask('API origin', DEFAULT_ANSWERS.api)),
+    };
+  } finally {
+    rl.close();
+  }
+}
+
 export async function main(argv: readonly string[] = process.argv.slice(2), io: MainIo = {}): Promise<ExitCode> {
   const out = io.stdout ?? process.stdout;
   const err = io.stderr ?? process.stderr;
@@ -208,11 +239,20 @@ export async function main(argv: readonly string[] = process.argv.slice(2), io: 
       return EXIT.PASS;
 
     case 'init': {
-      const p = parseArgs(rest, { booleans: ['yes'] });
+      const p = parseArgs(rest, { booleans: ['yes'], strings: ['target', 'web', 'api'] });
       if (isError(p)) return usage(p.error);
+      const given: InitAnswers = {
+        target: p.flags.target as string | undefined,
+        web: p.flags.web as string | undefined,
+        api: p.flags.api as string | undefined,
+      };
       try {
-        const written = await writeTemplates(path.resolve(cwd, p.positionals[0] ?? '.'), { yes: Boolean(p.flags.yes) });
-        for (const file of written) out.write(`  wrote ${file}\n`);
+        const answers = await askInitAnswers(given, Boolean(p.flags.yes));
+        const result = await writeTemplates(path.resolve(cwd, p.positionals[0] ?? '.'), answers);
+        for (const file of result.written) out.write(`  wrote ${file}\n`);
+        for (const file of result.appended) out.write(`  appended ${file}\n`);
+        for (const file of result.skipped) out.write(`  kept ${file} (already there)\n`);
+        out.write(INIT_NEXT);
         return EXIT.PASS;
       } catch (error) {
         say(error instanceof Error ? error.message : String(error));
@@ -293,7 +333,8 @@ export async function main(argv: readonly string[] = process.argv.slice(2), io: 
       const configPath = p.flags.config as string | undefined;
       try {
         if (sub === 'summary' && ids[0]) {
-          out.write(summary(await reportDirFor(ids[0], cwd, configPath)));
+          // the SUMMARY.md post-run wrote, as kept; never re-rendered from a folder that is already evidence
+          out.write(fs.readFileSync(path.join(await reportDirFor(ids[0], cwd, configPath), EVIDENCE.summary), 'utf8'));
           return EXIT.PASS;
         }
         if (sub === 'open' && ids[0]) {
@@ -339,17 +380,19 @@ export async function main(argv: readonly string[] = process.argv.slice(2), io: 
           const values = valuesFile
             ? fs.readFileSync(path.resolve(cwd, valuesFile), 'utf8').split('\0').filter(Boolean)
             : [];
-          const result = await scrub(target, { values });
+          const result = scrubDir(target, { values });
           out.write(
             `scrubbed ${target}: ${result.replaced} replacement(s), ${result.secretValues.length} place(s) held a secret value\n`,
           );
           for (const problem of result.problems) say(problem);
           return result.secretValues.length ? EXIT.FAIL : EXIT.PASS;
         }
-        const result = await scan(target);
+        // Read-only: files and kinds, never a value. 1 when only registered values are left, 4 for anything else.
+        const result = scanDir(target);
         out.write(`scanned ${result.scannedFiles} file(s): ${result.findings} finding(s)\n`);
         for (const f of result.files) out.write(`  ${f.file}: ${f.kind} x${f.count}\n`);
-        return result.findings ? EXIT.FAIL : EXIT.PASS;
+        for (const problem of result.problems) say(problem);
+        return scanExitCode(result);
       } catch (error) {
         say(error instanceof Error ? error.message : String(error));
         return EXIT.EVIDENCE_UNSAFE;

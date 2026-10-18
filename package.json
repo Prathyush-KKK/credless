@@ -10,19 +10,25 @@
     "node": ">=22.18"
   },
   "scripts": {
-    "check": "pnpm lint && pnpm typecheck && pnpm unit && pnpm contract:check && pnpm skill:check && pnpm catalog:check",
+    "check": "pnpm lint && pnpm typecheck && pnpm unit && pnpm contract:check && pnpm catalog:check && pnpm skill:check && pnpm skill:validate && pnpm check-tests && pnpm org-gate && pnpm test:action",
     "test": "pnpm check && pnpm selftest",
-    "build": "pnpm --filter ./packages/kit build",
+    "build": "pnpm --filter ./packages/kit build && pnpm --filter ./packages/kit pack:check",
     "lint": "biome check .",
     "format": "biome format --write .",
     "typecheck": "pnpm -r --if-present run typecheck",
+    "unit": "pnpm -r --if-present run unit",
     "selftest": "pnpm --filter ./packages/kit selftest",
-    "unit": "pnpm --filter ./packages/kit unit",
-    "contract:check": "echo \"TODO Task 5: contract:check (client routes are a subset of the contracts, every contract route has a demo handler, no route outside the base path)\"",
-    "skill:check": "echo \"TODO Task 7: skill:check (packages/kit/skills/e2e-testing and plugins/kit/skills/e2e-testing are identical)\"",
-    "catalog:check": "echo \"TODO Task 5: catalog:check (apps/demo/e2e/personas.yaml validates against the catalog schema)\"",
+    "demo": "node packages/kit/src/cli.ts demo",
+    "contract:check": "node scripts/contract-check.ts",
+    "catalog:check": "node scripts/catalog-check.ts",
+    "skill:sync": "node scripts/skill-sync.mjs",
+    "skill:check": "node scripts/skill-sync.mjs --check",
+    "skill:validate": "node scripts/skill-validate.mjs",
+    "check-tests": "node packages/kit/src/cli.ts check-tests apps/demo/e2e packages/kit/templates/e2e",
+    "org-gate": "node scripts/org-gate.mjs",
+    "test:action": "node --test action/summary.test.mjs",
     "pack:check": "pnpm --filter ./packages/kit build && pnpm --filter ./packages/kit pack:check",
-    "release": "echo \"TODO Task 8: changeset version, then pnpm publish -r with provenance\""
+    "release": "changeset publish"
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "0.18.5",

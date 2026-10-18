@@ -7,7 +7,7 @@ import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ENV } from '../types.ts';
-import { Redactor } from './deps.ts';
+import { forEachRegisteredSecret, Redactor } from './deps.ts';
 import { WORKER_PROXY_ENV } from './shim-policy.ts';
 
 /** Host variables a native run's processes may see: the shell's basics, display and TLS trust, nothing else. */
@@ -103,6 +103,7 @@ const PASS_KIT = new Set<string>([
   ENV.A11Y,
   ENV.WEB_URL,
   ENV.API_URL,
+  ENV.DEMO_KEY_FILE,
   WORKER_PROXY_ENV,
   'DEMO_WEB',
   'DEMO_API',
@@ -200,6 +201,8 @@ export interface SpawnOptions {
   env: Record<string, string>;
   /** values to redact in the child's output (besides every registered secret) */
   redact?: string[];
+  /** the live run folder, whose `.sensitive-hashes` names the codes in play; they are redacted from the output too */
+  redactDir?: string;
   stdout: NodeJS.WritableStream;
   stderr: NodeJS.WritableStream;
   /** told about the child, so a signal handler can stop it */
@@ -221,8 +224,11 @@ export function spawnRedacted(cmd: string, argv: string[], options: SpawnOptions
       windowsHide: true,
     });
     options.onChild?.(child);
-    const out = new Redactor(options.redact ?? []);
-    const err = new Redactor(options.redact ?? []);
+    // Every value this process holds as a secret is replaced in the child's output, whatever the caller listed.
+    const values = [...(options.redact ?? [])];
+    forEachRegisteredSecret((value) => values.push(value));
+    const out = new Redactor({ values, dir: options.redactDir });
+    const err = new Redactor({ values, dir: options.redactDir });
     child.stdout?.pipe(out).pipe(options.stdout, { end: false });
     child.stderr?.pipe(err).pipe(options.stderr, { end: false });
     child.once('error', (error) => {

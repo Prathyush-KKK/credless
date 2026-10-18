@@ -6,8 +6,9 @@
   "license": "Apache-2.0",
   "type": "module",
   "scripts": {
-    "start": "echo \"TODO Task 5: node src/server.ts (prints 'ready web=<origin> api=<origin>')\"",
-    "typecheck": "echo \"TODO Task 5: tsc --noEmit -p . once src/ exists\""
+    "start": "node src/server.ts",
+    "typecheck": "tsc --noEmit -p .",
+    "unit": "vitest run"
   },
   "dependencies": {
     "credless": "workspace:*"
@@ -15,6 +16,7 @@
   "devDependencies": {
     "@playwright/test": "1.64.1",
     "@types/node": "24.19.2",
-    "typescript": "5.9.3"
+    "typescript": "5.9.3",
+    "vitest": "5.0.5"
   }
 }

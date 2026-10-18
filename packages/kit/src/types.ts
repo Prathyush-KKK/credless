@@ -64,6 +64,10 @@ export const ENV = {
   WEB_URL: `${ENV_PREFIX}WEB_URL`,
   /** override of the target's api origin; must pass the same checks as the configured one */
   API_URL: `${ENV_PREFIX}API_URL`,
+  /** the worker shim's policy: unset or `off` leaves it inert; `loopback` (set by global setup) lets a worker dial loopback only; a URL allows that proxy too */
+  WORKER_PROXY_URL: `${ENV_PREFIX}WORKER_PROXY_URL`,
+  /** the 0600 file holding the demo's stand-in runner key: the demo writes it (`--write-key`), the demo configs' `file` key source reads it */
+  DEMO_KEY_FILE: `${ENV_PREFIX}DEMO_KEY_FILE`,
 } as const;
 
 /** The name of one kit environment variable, for example `'CREDLESS_TARGET'`. */
@@ -844,7 +848,10 @@ export interface StateControl {
   cleanupRun(): Promise<CleanupResult>;
 }
 
-/** The protected surface an app's extension class uses (`this.api`, `this.track(...)`, `this.secret(...)`). */
+/**
+ * The protected surface an app's extension class uses (`this.api`, `this.track(...)`, `this.secret(...)`).
+ * Documentation only: a class cannot `implements` protected members, so `Control` mirrors these as protected fields.
+ */
 export interface ControlInternals {
   readonly api: TestApiClient;
   /** remember an object for teardown; `kind` names the extension's delete method or cleanup bucket */
@@ -933,8 +940,8 @@ export type HostResolver = (hostname: string) => Promise<ResolvedAddress[]>;
 
 export interface EgressProxyOptions {
   policy: EgressPolicy;
-  /** which browser context this proxy serves; the canary records it */
-  contextId: string;
+  /** which browser context this proxy serves; the canary records it. Generated (`ctx-<random>`) when absent */
+  contextId?: string;
   lookup?: HostResolver;
   limits?: Partial<EgressLimits>;
 }
@@ -1165,8 +1172,18 @@ export interface ScanResult {
   files: ScanFinding[];
   /** files deleted and listed in QUARANTINED.md because a finding survived the scrub */
   quarantined: string[];
+  /** findings of the second scan, after the quarantine; any entry makes the evidence unsafe to keep (scan.json only) */
+  leftAfterRemoval?: ScanFinding[];
+  /** registered secret values the scrub found and redacted; any number above 0 fails the run (scan.json only) */
+  secretValues?: number;
+  /** the files they were in, as top-level paths, never values (scan.json only) */
+  secretValuesIn?: string[];
 }
 
+/**
+ * What the scrub did. `scrubDir` returns it with one more, NON-ENUMERABLE member: `collected`, the cookie and header
+ * values it gathered for the scan; a logged or serialised result never shows them.
+ */
 export interface ScrubResult {
   /** values redacted, all encodings counted */
   replaced: number;

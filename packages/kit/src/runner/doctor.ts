@@ -8,7 +8,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { CLI_NAME, KIT_NAME } from '../brand.ts';
 import { DEFAULTS, ENV, type ExecPreset, type RunConfig, type RunMode } from '../types.ts';
-import { createKeySource, loadRunConfig } from './deps.ts';
+import { createKeySource, loadProjectConfig } from './deps.ts';
 import { dockerAvailable, dockerOnPath, imageFor, imagePulled, insideContainer, playwrightVersion } from './docker.ts';
 import { findConfigFile } from './project.ts';
 import { checkSlot, resolveSlot, SlotError } from './slot.ts';
@@ -149,8 +149,9 @@ export async function doctor(input: DoctorInput = {}): Promise<DoctorReport> {
         target = (targets.find(([, t]) => t.kind === 'local') ?? targets[0])?.[0] ?? null;
       }
       if (!target) throw new Error('the config declares no targets');
-      config = await loadRunConfig({
+      config = await loadProjectConfig({
         configPath: configFile,
+        cwd,
         env: { ...env, [ENV.TARGET]: target, [ENV.SLOT]: DEFAULTS.slot },
       });
       ok(

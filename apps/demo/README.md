@@ -32,9 +32,10 @@ Plain Node 22.18+ or 24, no build, no dependencies beyond `node:` and the kit's 
 flag-off case of the backend brief: `/_test/*` is a plain 404). The one line it prints is what Playwright's
 `webServer.wait` regex reads. `SIGTERM` stops it.
 
-The runner key the test API expects is a **stand-in, never a real secret**. It comes from, in order: the file named
-by `CREDLESS_DEMO_KEY_FILE`; a fresh random key written (mode 0600, never overwriting) to `--write-key PATH`, so the
-kit's `selftest` target reads the same file; or `src/fake-secrets.json`. The sign-in persona's password is the other
+The runner key the test API expects is a **stand-in, never a real secret**. It comes from, in order: a fresh random
+key written (mode 0600, never overwriting) to `--write-key PATH`, so the kit's `selftest` and `demo` targets read the
+same file through `CREDLESS_DEMO_KEY_FILE`; the file that variable names, when a demo started by hand should reuse
+one; or `src/fake-secrets.json`. The sign-in persona's password is the other
 stand-in in that file; the harness hands it to the one UI sign-in test as `CREDLESS_SIGNIN_PASSWORD`. The kit's
 evidence scan treats both exactly like real secrets: a self-test that leaks either fails the run.
 

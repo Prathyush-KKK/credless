@@ -11,15 +11,21 @@ export const KIT_ROOT = fileURLToPath(new URL('../../../', import.meta.url));
 export const CLI = path.join(KIT_ROOT, 'src', 'cli.ts');
 export const NODE_MODULES = path.join(KIT_ROOT, 'node_modules');
 
-/** A config with a local `selftest` target and a remote `dev` target on a reserved domain. */
-export function configSource(options: { key?: string; reportsDir?: string; stagingDir?: string } = {}): string {
+/**
+ * A config with a local `selftest` target and a remote `dev` target on a reserved domain. `extraTargets` adds more
+ * target lines; a production-shaped one makes the loader refuse the whole config (the overlap check), so it is never
+ * in the shared config.
+ */
+export function configSource(
+  options: { key?: string; reportsDir?: string; stagingDir?: string; extraTargets?: string[] } = {},
+): string {
   const key = options.key ?? `{ source: 'env' }`;
   return [
     'export default {',
     '  targets: {',
     "    selftest: { web: 'http://127.0.0.1:1', api: 'http://127.0.0.1:1', kind: 'local' },",
     "    dev: { web: 'https://dev.app.example', api: 'https://dev.api.example' },",
-    "    prodlike: { web: 'https://app.prod.example', api: 'https://api.prod.example' },",
+    ...(options.extraTargets ?? []).map((line) => `    ${line}`),
     '  },',
     "  production: { domains: ['example.com'], words: ['prod', 'production'] },",
     "  personas: { catalog: 'personas.yaml', addressPattern: '^qa\\\\+[a-z0-9-]+@example\\\\.com$' },",

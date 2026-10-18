@@ -2,8 +2,8 @@
 // project's own Playwright and the shim are resolved from /work) and `__post-run` (natively and in the container).
 import { pathToFileURL } from 'node:url';
 import { CLI_NAME } from '../brand.ts';
-import { ENV, EXIT, type ExitCode } from '../types.ts';
-import { postRun } from './deps.ts';
+import { EXIT, type ExitCode } from '../types.ts';
+import { postRunMain } from './deps.ts';
 import { resolvePlaywrightCli, shimPath, spawnRedacted } from './spawn.ts';
 
 export interface EntryIo {
@@ -33,28 +33,17 @@ export async function suite(args: string[], io: EntryIo): Promise<number> {
   return result.code ?? 128;
 }
 
-/** `__post-run <dir> --suite-exit <n> [--compare <dir>]`: the pipeline; 0 or 1 with the marker, anything else is 4. */
-export async function postRunEntry(args: string[], io: EntryIo): Promise<ExitCode | number> {
-  const dir = args[0];
-  const at = (flag: string) => {
-    const i = args.indexOf(flag);
-    return i >= 0 ? args[i + 1] : undefined;
-  };
-  const suiteExit = Number(at('--suite-exit'));
-  if (!dir || dir.startsWith('--') || !Number.isInteger(suiteExit)) {
-    io.stderr.write(`${CLI_NAME}: usage: __post-run <run dir> --suite-exit <code> [--compare <run dir>]\n`);
-    return EXIT.USAGE;
-  }
+/**
+ * `__post-run <dir> --suite-exit <n> [--compare <dir>] [--cookie-names a,b] [--header-names a,b] [--code-shape s]`:
+ * the evidence pipeline (evidence/post-run.ts), which reads the scrub-values file and the evidence key from the
+ * environment and removes the file's name from it at once. 0 or 1 come with the marker; anything else is 4 and the
+ * caller deletes the folder. Nothing thrown here is repeated: it could quote what post-run choked on.
+ */
+export async function postRunEntry(args: string[], io: EntryIo): Promise<ExitCode> {
   try {
-    const code = await postRun({
-      runDir: dir,
-      suiteExitCode: suiteExit,
-      compareWith: at('--compare'),
-      scrubValuesFile: io.env[ENV.SCRUB_VALUES_FILE],
-    });
-    return code;
+    return await postRunMain(args, io.env);
   } catch (error) {
-    io.stderr.write(`${CLI_NAME} post-run: ${error instanceof Error ? error.message : String(error)}\n`);
+    io.stderr.write(`${CLI_NAME} post-run: failed (${error instanceof Error ? error.name : 'error'})\n`);
     return EXIT.EVIDENCE_UNSAFE;
   }
 }

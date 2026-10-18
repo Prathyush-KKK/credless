@@ -38,9 +38,10 @@ jobs:
           cache: pnpm
 
       - name: Install and build (frozen lockfile, no install scripts)
+        # the action runs the built CLI (dist/cli.js) of the `credless` the working directory depends on
         run: |
           pnpm install --frozen-lockfile
-          pnpm build
+          pnpm --filter ./packages/kit build
 
       - name: Run the demo suite through the action
         id: demo
@@ -51,7 +52,8 @@ jobs:
           slot: z
           node-version: 24
           install-browsers: 'false' # the Playwright image has them
-          reports-dir: apps/demo/reports # the demo runs with apps/demo as its project
+          working-directory: apps/demo # the project that depends on credless; `credless demo` finds the demo from here
+          reports-dir: reports # apps/demo/reports: the demo config's `evidence.reportsDir`
           retention-days: 14
 
       - name: Verdict

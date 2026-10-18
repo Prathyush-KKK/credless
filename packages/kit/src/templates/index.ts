@@ -1,10 +1,10 @@
-// What `credless init` writes (plan §4.4, §7): the files under the repo's `templates/` directory, copied into the
+// What `credless init` writes (plan §4.4, §7): the files under the package's `templates/` directory, copied into the
 // consumer's project with the target name and origins filled in. The CLI's `init` command (runner/init.ts, Task 4)
 // calls `writeTemplates`; `listTemplates` is for `init --dry-run` and the docs.
 //
-// The templates live at the workspace root (`templates/`) in development and inside the package (`<package>/templates`)
-// when published; `templatesDir()` finds whichever exists. Nothing here reads or writes a secret: the config template
-// names a key SOURCE, never a value.
+// The templates live inside the package (`<package>/templates`, published with it); `templatesDir()` also accepts a
+// `templates/` at the workspace root, should they ever move back. Nothing here reads or writes a secret: the config
+// template names a key SOURCE, never a value.
 import { existsSync, readFileSync } from 'node:fs';
 import { appendFile, mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -58,6 +58,8 @@ const SETTINGS_SNIPPET = `${KIT_NAME}-settings.snippet.json`;
 
 const ENTRIES: readonly TemplateEntry[] = [
   { source: CONFIG_FILE, destination: CONFIG_FILE, mode: 'create', fill: true },
+  // the kit's reporters, global setup and no retries, through `kitPlaywrightConfig`; nothing in it is project-specific
+  { source: 'playwright.config.ts', destination: 'playwright.config.ts', mode: 'create', fill: false },
   { source: 'personas.yaml', destination: 'personas.yaml', mode: 'create', fill: true },
   { source: 'e2e/example.spec.ts', destination: 'e2e/example.spec.ts', mode: 'create', fill: true },
   { source: 'AGENTS.md', destination: 'AGENTS.md', mode: 'append', fill: true },

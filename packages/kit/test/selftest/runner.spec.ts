@@ -3,6 +3,7 @@
 // of staging with the marker. B01/B02 through a real run with the broker are Task 6's, in the selftest project proper.
 // biome-ignore lint/style/noRestrictedImports: this self-test drives the CLI as a child process on purpose
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { expect, test } from '@playwright/test';
 import { cli, cliAsync, makeProject, type TempProject, until } from '../unit/helpers/tmp-project.ts';
@@ -59,6 +60,9 @@ test.describe('runner', () => {
   });
 
   test('R05 a run stopped by a signal deletes its staging folder and keeps nothing', async () => {
+    // Windows has no catchable SIGTERM: kill() ends the process without running its handlers, so the run cannot
+    // clean up after itself there; the next run's orphan sweep (staging.ts) removes what it left.
+    test.skip(os.platform() === 'win32', 'no catchable SIGTERM on Windows; the orphan sweep covers it');
     const p = project({ spec: '  await new Promise((r) => setTimeout(r, 20_000));' });
     const child = cliAsync(p, ['run', '--target', 'selftest', '--native']);
     let output = '';

@@ -2,6 +2,9 @@ node_modules/
 dist/
 reports/
 .staging/
+.release/
+# the private pattern list of the organisation-string gate (scripts/org-gate.mjs); .org-gate.example is the shape
+.org-gate.local
 *.env
 .env*
 *.pem

@@ -1,4 +1,6 @@
 // Mail sinks (plan §4.2): where a persona's mail is read from. Mail to test accounts is captured, never sent.
+import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import type { MailSink, MailSinkRef } from '../../types.ts';
 import { extractFromBody, type MailpitOptions, mailpitMailSink } from './mailpit.ts';
 import { messageMatches, pollForMessage, type TestApiMailOptions, testApiMailSink, toMessage } from './test-api.ts';
@@ -31,7 +33,9 @@ export function mailSink(ref: MailSinkRef, deps: MailSinkDeps = {}): MailSink {
 /** Like {@link mailSink}, and loads a `module` reference (default export: a MailSink). */
 export async function loadMailSink(ref: MailSinkRef, deps: MailSinkDeps = {}): Promise<MailSink> {
   if (ref.sink !== 'module') return mailSink(ref, deps);
-  const loaded = (await import(ref.module)) as { default?: unknown };
+  // the loader resolved a relative reference to an absolute path; `import()` takes it as a URL on every platform
+  const spec = path.isAbsolute(ref.module) ? pathToFileURL(ref.module).href : ref.module;
+  const loaded = (await import(spec)) as { default?: unknown };
   const sink = loaded.default as MailSink | undefined;
   if (!sink || typeof sink.messages !== 'function' || typeof sink.waitFor !== 'function')
     throw new Error(`${ref.module} does not export a MailSink as default`);

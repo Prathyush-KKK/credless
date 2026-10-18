@@ -1,12 +1,12 @@
 // The worker shim's policy: pure functions and the one environment name, importable without the shim's side effect
 // (the CLI and global setup set the variable; the shim reads it). See worker-shim.ts for what the shim does.
-import { ENV_PREFIX } from '../brand.ts';
+import { ENV } from '../types.ts';
 
 /**
- * Proposed `ENV.WORKER_PROXY_URL`: `off` or unset leaves the shim inert; `loopback` turns the guard on with no proxy
- * (v0.1: global setup sets this for the workers); a URL allows that proxy too and publishes it as the env proxy.
+ * `ENV.WORKER_PROXY_URL`: `off` or unset leaves the shim inert; `loopback` turns the guard on with no proxy (v0.1:
+ * global setup sets this for the workers); a URL allows that proxy too and publishes it as the env proxy.
  */
-export const WORKER_PROXY_ENV = `${ENV_PREFIX}WORKER_PROXY_URL`;
+export const WORKER_PROXY_ENV: string = ENV.WORKER_PROXY_URL;
 
 export interface ShimPolicy {
   /** the proxy's host and port, allowed besides loopback */

@@ -3,5 +3,12 @@
   "compilerOptions": {
     "rootDir": "."
   },
-  "include": ["src/**/*.ts", "test/**/*.ts", "playwright.config.ts", "tsdown.config.ts", "vitest.config.ts"]
+  "include": [
+    "src/**/*.ts",
+    "test/**/*.ts",
+    "credless.config.ts",
+    "playwright.config.ts",
+    "tsdown.config.ts",
+    "vitest.config.ts"
+  ]
 }

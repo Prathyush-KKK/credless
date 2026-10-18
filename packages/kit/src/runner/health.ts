@@ -9,7 +9,7 @@ import {
   Control,
   createKeySource,
   loadCatalog,
-  loadRunConfig,
+  loadProjectConfig,
   mailSinkFor,
   namespaceFor,
   TestApiClient,
@@ -62,7 +62,7 @@ async function prepare(
   delete loaderEnv[ENV.SIGNIN_PASSWORD];
   let config: RunConfig;
   try {
-    config = await loadRunConfig({ configPath: project.configFile, env: loaderEnv });
+    config = await loadProjectConfig({ configPath: project.configFile, cwd, env: loaderEnv });
   } catch (error) {
     say(message(error));
     return EXIT.USAGE;
@@ -160,7 +160,7 @@ export async function seed(input: TargetCommandInput): Promise<ExitCode> {
         ns,
         runId: config.runId,
         webOrigin: config.endpoints.web,
-        mail: mailSinkFor(api, config.kit.mail),
+        mail: await mailSinkFor(api, config.kit.mail, { ns, catalog }),
       });
       if (i === 0) await control.health();
       const ensured = await control.ensure(all);

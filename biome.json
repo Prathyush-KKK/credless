@@ -64,7 +64,13 @@
   },
   "overrides": [
     {
-      "includes": ["**/e2e/**", "packages/kit/test/selftest/**", "templates/**"],
+      "includes": [
+        "**/e2e/**",
+        "!**/e2e/*.config.ts",
+        "packages/kit/test/selftest/**",
+        "packages/kit/templates/**",
+        "!packages/kit/templates/*.config.ts"
+      ],
       "linter": {
         "rules": {
           "style": {

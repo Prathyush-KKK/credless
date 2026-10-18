@@ -5,9 +5,9 @@
 //
 //   node apps/demo/src/server.ts [--web-port N] [--api-port N] [--write-key PATH] [--no-sentinels] [--no-test-api]
 //
-// The runner key the demo expects is a stand-in, never a real secret: it comes from the file named by
-// CREDLESS_DEMO_KEY_FILE, or is generated and written (mode 0600, never overwriting) to `--write-key PATH` so the
-// kit's `selftest` target reads it from the same file, or falls back to apps/demo/src/fake-secrets.json.
+// The runner key the demo expects is a stand-in, never a real secret: it is generated and written (mode 0600, never
+// overwriting) to `--write-key PATH` so the kit's `selftest` and `demo` targets read it from the same file, or comes
+// from the file named by CREDLESS_DEMO_KEY_FILE, or falls back to apps/demo/src/fake-secrets.json.
 
 import crypto from 'node:crypto';
 import dgram from 'node:dgram';
@@ -57,19 +57,21 @@ function parseArgs(argv: string[]): Args {
   return args;
 }
 
-/** The runner key, by source: the env-named file, a fresh one written to `--write-key`, or the stand-in. */
+/** The runner key, by source: a fresh one written to `--write-key`, the env-named file, or the stand-in. */
 function resolveKey(args: Args): string {
-  const fromEnv = process.env[KEY_FILE_ENV];
-  if (fromEnv) {
-    const key = fs.readFileSync(fromEnv, 'utf8').trim();
-    if (!key) throw new Error(`${KEY_FILE_ENV} names an empty file`);
-    return key;
-  }
+  // The flag first: a harness that asks for a fresh key says so on the command line, while the variable it sets for
+  // its own processes (the config's `file` key source) is inherited by this one too.
   if (args.writeKey) {
     const key = crypto.randomBytes(24).toString('base64url');
     fs.mkdirSync(path.dirname(args.writeKey), { recursive: true, mode: 0o700 });
     // O_EXCL: a stale file is the caller's to remove; the demo never overwrites a key file it did not create.
     fs.writeFileSync(args.writeKey, key, { mode: 0o600, flag: 'wx' });
+    return key;
+  }
+  const fromEnv = process.env[KEY_FILE_ENV];
+  if (fromEnv) {
+    const key = fs.readFileSync(fromEnv, 'utf8').trim();
+    if (!key) throw new Error(`${KEY_FILE_ENV} names an empty file`);
     return key;
   }
   return fakeSecrets.runnerKey;

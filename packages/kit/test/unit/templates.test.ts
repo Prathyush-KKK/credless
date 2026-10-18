@@ -57,10 +57,11 @@ async function validateWithSchema(config: KitConfig): Promise<'schema' | 'shape'
 }
 
 describe('listTemplates', () => {
-  it('names seven templates that all exist', () => {
+  it('names eight templates that all exist', () => {
     const entries = listTemplates();
     expect(entries.map((e) => e.destination)).toEqual([
       configFile,
+      'playwright.config.ts',
       'personas.yaml',
       'e2e/example.spec.ts',
       'AGENTS.md',
@@ -112,7 +113,7 @@ describe('writeTemplates', () => {
 
   it('writes every template into an empty directory and the config parses', async () => {
     const result = await writeTemplates(dir);
-    expect(result.written).toHaveLength(7);
+    expect(result.written).toHaveLength(8);
     expect(result.skipped).toEqual([]);
     expect(result.appended).toEqual([]);
     for (const entry of listTemplates())
@@ -160,7 +161,7 @@ describe('writeTemplates', () => {
     const second = await writeTemplates(dir);
     expect(second.written).toEqual([]);
     expect(second.appended).toEqual([]);
-    expect(second.skipped).toHaveLength(7);
+    expect(second.skipped).toHaveLength(8);
     expect(readFileSync(path.join(dir, 'AGENTS.md'), 'utf8')).toBe(agents);
   });
 

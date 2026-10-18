@@ -1,9 +1,12 @@
 // `demo [--headed] [--demo-dir d] [--target t]`: start the demo app, run the quickstart suite against it through `run`,
 // print where the contact sheets are. The demo server prints `ready web=<origin> api=<origin>` on ephemeral ports
 // (docs/conventions.md §10); those origins reach the run as `DEMO_WEB`/`DEMO_API` and as the kit's origin overrides,
-// so the demo's config may hold placeholders.
+// so the demo's config may hold placeholders. The demo's stand-in runner key is written by the server (`--write-key`,
+// mode 0600) into a private temp dir that goes when the demo stops; the run's config reads it from there
+// (`CREDLESS_DEMO_KEY_FILE`), the same way the kit's own self-tests do.
 import { type ChildProcess, spawn } from 'node:child_process';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { CLI_NAME, KIT_NAME } from '../brand.ts';
@@ -130,7 +133,10 @@ export async function demo(input: DemoInput = {}): Promise<ExitCode> {
     say(`${configFile} declares no targets`);
     return EXIT.USAGE;
   }
-  const server = spawn(process.execPath, [path.join(demoDir, 'src', 'server.ts')], {
+  // mkdtemp makes the dir 0700; the server writes the key file 0600 inside it, never overwriting.
+  const keyDir = fs.mkdtempSync(path.join(os.tmpdir(), `${KIT_NAME}-demo-`));
+  const keyFile = path.join(keyDir, 'runner.key');
+  const server = spawn(process.execPath, [path.join(demoDir, 'src', 'server.ts'), '--write-key', keyFile], {
     cwd: demoDir,
     env: childEnvironment(env),
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -139,6 +145,11 @@ export async function demo(input: DemoInput = {}): Promise<ExitCode> {
   try {
     const origins = await waitForReady(server, input.readyTimeoutSeconds ?? 30, err);
     say(`demo app ready: web ${origins.web}, api ${origins.api}`);
+    // The one sign-in test types the demo's stand-in password; it goes to `run` the way a real one does (taken over
+    // into a 0600 file in staging, never a worker's environment). Missing from the file: the test fails, nothing else.
+    const fake = JSON.parse(fs.readFileSync(path.join(demoDir, 'src', 'fake-secrets.json'), 'utf8')) as {
+      signinPassword?: string;
+    };
     let result: RunResult | null = null;
     const code = await run({
       target,
@@ -151,6 +162,8 @@ export async function demo(input: DemoInput = {}): Promise<ExitCode> {
         DEMO_API: origins.api,
         [ENV.WEB_URL]: origins.web,
         [ENV.API_URL]: origins.api,
+        [ENV.DEMO_KEY_FILE]: keyFile,
+        ...(fake.signinPassword ? { [ENV.SIGNIN_PASSWORD]: fake.signinPassword } : {}),
       },
       stdout: out,
       stderr: err,
@@ -172,5 +185,6 @@ export async function demo(input: DemoInput = {}): Promise<ExitCode> {
     return EXIT.USAGE;
   } finally {
     server.kill('SIGTERM');
+    fs.rmSync(keyDir, { recursive: true, force: true });
   }
 }

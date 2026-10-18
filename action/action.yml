@@ -95,11 +95,22 @@ runs:
       shell: bash
       run: corepack enable || echo 'corepack not available; using the npm on PATH'
 
+    - name: Locate the installed CLI
+      # The project's own copy, resolved by Node from the working directory: never `npx credless`, whose fallback
+      # would fetch a package from the registry when the dependency is missing.
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        set -u
+        pkg="$(node -e "console.log(require.resolve('credless/package.json'))")" || {
+          echo 'credless is not installed in this project (npm i -D credless)'; exit 2; }
+        echo "CREDLESS_CLI=$(dirname "$pkg")/dist/cli.js" >> "$GITHUB_ENV"
+
     - name: Install Chromium
       if: inputs.install-browsers == 'true'
       shell: bash
       working-directory: ${{ inputs.working-directory }}
-      run: npx playwright install --with-deps chromium
+      run: npx --no-install playwright install --with-deps chromium
 
     - name: Doctor (reads no secret)
       shell: bash
@@ -111,11 +122,11 @@ runs:
       run: |
         set -u
         if [ "$COMMAND" = 'demo' ]; then
-          npx credless doctor --offline --native   # the demo app is not up yet; no target to probe
+          node "$CREDLESS_CLI" doctor --offline --native   # the demo app is not up yet; no target to probe
         else
           args=(doctor --target "$TARGET" --native)
           if [ -n "$CONFIG" ]; then args+=(--config "$CONFIG"); fi
-          npx credless "${args[@]}"
+          node "$CREDLESS_CLI" "${args[@]}"
         fi
 
     - name: Run
@@ -147,7 +158,7 @@ runs:
           if [ -n "$GREP" ]; then args+=(-- --grep "$GREP"); fi
         fi
         set +e
-        npx credless "${args[@]}"
+        node "$CREDLESS_CLI" "${args[@]}"
         code=$?
         set -e
         echo "exit-code=$code" >> "$GITHUB_OUTPUT"

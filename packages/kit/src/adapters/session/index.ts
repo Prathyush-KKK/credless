@@ -1,4 +1,6 @@
 // Session providers (plan §4.2): how a persona's browser gets signed in.
+import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import type { SessionProvider, SessionProviderRef } from '../../types.ts';
 import { storageStateFileSessionProvider } from './storage-state-file.ts';
 import { type TestApiSessionOptions, testApiSessionProvider } from './test-api.ts';
@@ -26,7 +28,9 @@ export async function loadSessionProvider(
   options: TestApiSessionOptions = {},
 ): Promise<SessionProvider> {
   if (ref.provider !== 'module') return sessionProvider(ref, options);
-  const loaded = (await import(ref.module)) as { default?: unknown };
+  // the loader resolved a relative reference to an absolute path; `import()` takes it as a URL on every platform
+  const spec = path.isAbsolute(ref.module) ? pathToFileURL(ref.module).href : ref.module;
+  const loaded = (await import(spec)) as { default?: unknown };
   const provider = loaded.default as SessionProvider | undefined;
   if (!provider || typeof provider.mint !== 'function')
     throw new Error(`${ref.module} does not export a SessionProvider as default`);

@@ -14,7 +14,9 @@
   ],
   "license": "Apache-2.0",
   "type": "module",
-  "sideEffects": false,
+  "sideEffects": [
+    "./dist/worker-shim.js"
+  ],
   "engines": {
     "node": ">=24.12"
   },
@@ -46,11 +48,20 @@
       "types": "./dist/cli.d.ts",
       "default": "./dist/cli.js"
     },
+    "./global-setup": {
+      "types": "./dist/global-setup.d.ts",
+      "default": "./dist/global-setup.js"
+    },
+    "./worker-shim": {
+      "types": "./dist/worker-shim.d.ts",
+      "default": "./dist/worker-shim.js"
+    },
     "./package.json": "./package.json"
   },
   "files": [
     "dist",
     "skills",
+    "templates",
     "contract",
     "README.md",
     "LICENSE"
@@ -59,7 +70,7 @@
     "build": "tsdown",
     "typecheck": "tsc --noEmit -p .",
     "unit": "vitest run",
-    "selftest": "echo \"TODO Task 6: playwright test --project=selftest (through the runner: node dist/cli.js run --target selftest --native)\"",
+    "selftest": "node src/cli.ts run --target selftest --native",
     "pack:check": "publint && attw --pack . --profile esm-only"
   },
   "peerDependencies": {

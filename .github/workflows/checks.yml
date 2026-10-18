@@ -1,0 +1,93 @@
+# The repository's checks (plan §11, row 6): on Linux and Windows, with the Node the published package declares and
+# the pnpm that `packageManager` pins. `check` is biome, the type checks, the unit tests of both packages, the
+# contract, catalog and skill checks, the test-code gate, the organisation-string gate (non-strict: CI has no pattern
+# file) and the action's own tests; `selftest` runs the kit's Playwright suite through the CLI
+# (`credless run --target selftest --native`), so the scrub, the scan and the leak check run too, and the kept
+# evidence folder becomes an artifact for 14 days. `build` proves the published shape: tsdown, publint, attw and a
+# dry-run pack. The self-tests are Chromium-only; WebKit and Firefox are a project's choice.
+#
+# Before launch: pin every `uses:` to a commit SHA (renovate.json's helpers:pinGitHubActionDigests proposes them).
+name: checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: checks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: check and self-tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4 # TODO before launch: pin to a SHA
+
+      - uses: pnpm/action-setup@v4 # TODO before launch: pin to a SHA; the pnpm version comes from packageManager
+
+      - uses: actions/setup-node@v4 # TODO before launch: pin to a SHA
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install (frozen lockfile, no install scripts)
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Chromium with its system dependencies
+        if: runner.os != 'Windows'
+        run: pnpm --filter ./packages/kit exec playwright install --with-deps chromium
+
+      - name: Install Chromium (Windows has no --with-deps)
+        if: runner.os == 'Windows'
+        run: pnpm --filter ./packages/kit exec playwright install chromium
+
+      - name: Check
+        run: pnpm check
+
+      - name: Self-tests through the runner (what `pnpm test` runs after `check`)
+        run: pnpm selftest
+
+      - name: Keep the evidence
+        if: always()
+        uses: actions/upload-artifact@v4 # TODO before launch: pin to a SHA
+        with:
+          name: credless-selftest-reports-${{ matrix.os }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: packages/kit/reports/**
+          if-no-files-found: ignore
+          retention-days: 14
+
+  build:
+    name: build and package shape
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4 # TODO before launch: pin to a SHA
+
+      - uses: pnpm/action-setup@v4 # TODO before launch: pin to a SHA
+
+      - uses: actions/setup-node@v4 # TODO before launch: pin to a SHA
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install (frozen lockfile, no install scripts)
+        run: pnpm install --frozen-lockfile
+
+      - name: Build (tsdown), then publint and attw on the built package
+        run: pnpm build
+
+      - name: The bundle starts
+        run: node packages/kit/dist/cli.js --help
+
+      - name: Dry-run pack
+        run: pnpm --filter ./packages/kit pack --dry-run
