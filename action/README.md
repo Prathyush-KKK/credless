@@ -44,13 +44,13 @@ jobs:
 | Input | Default | Meaning |
 |---|---|---|
 | `target` | required | a key of `targets` in `credless.config.ts`. Production targets are refused by the CLI. With `command: demo` it only names the artifact |
-| `command` | `run` | `run` runs `credless run --target <target>`; `demo` runs `credless demo` (starts the bundled demo app and its quickstart suite, no key), which is how this repository dogfoods the action |
+| `command` | `run` | `run` runs `credless run --target <target>`; `demo` runs `credless demo` (starts the bundled demo app and its quickstart suite, no key), the no-key way to try the action |
 | `key` | `''` | the test-API runner key, from an environment secret. Empty for the demo |
 | `slot` | `z` | the agent slot letter; CI uses `z` so it never collides with a person's slot |
 | `grep` | `''` | run only tests whose title matches (Playwright `--grep`) |
 | `twice` | `'false'` | run the suite twice and write `FLAKES.md` instead of retrying |
 | `workers` | `''` | worker count; the config's default when empty |
-| `node-version` | `'24'` | for `actions/setup-node`; the package needs 24.12 or later |
+| `node-version` | `'24'` | for `actions/setup-node`; the package needs Node.js 22.18 or later |
 | `config` | `''` | path of the config file when it is not `credless.config.ts` in the working directory |
 | `install-browsers` | `'true'` | install Chromium with system dependencies; `'false'` inside the Playwright image |
 | `working-directory` | `'.'` | the project directory with the config and the installed `credless` dependency |
@@ -94,8 +94,9 @@ run; the script adds nothing else from the environment.
 If you emit CTRF (`playwright-ctrf-json-reporter` is an optional dependency the kit uses when installed),
 `ctrf-io/github-test-reporter` is a documented alternative for richer PR reporting; the scan covers `ctrf.json` too.
 
-## Dogfood
+## Try it with no key
 
-`.github/workflows/demo-e2e.yml` in this repository runs this action with `command: demo` on every push and pull
-request, with no key configured anywhere: `credless demo` starts the demo app, runs the quickstart suite against it
-and leaves the evidence under `apps/demo/reports/`.
+[`docs/ci/demo-e2e.yml`](../docs/ci/demo-e2e.yml) is a ready-to-copy workflow that runs this action with
+`command: demo`, with no key configured anywhere: `credless demo` starts the bundled demo app, runs the quickstart
+suite against it and keeps the evidence as an artifact. Copy it into `.github/workflows/` of a repository where
+GitHub Actions runs to see the job summary and the pull-request comment before you wire your own target.

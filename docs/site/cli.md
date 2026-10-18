@@ -1,4 +1,4 @@
-# CLI
+# CLI reference
 
 `npx credless <command>`. No shell is spawned anywhere (`execFile` with argv arrays); children get an environment
 allowlist, never `process.env`; a child's stdio passes through a redacting stream.
@@ -13,7 +13,7 @@ allowlist, never `process.env`; a child's stdio passes through a redacting strea
 | `report summary\|open\|compare <runId...>` | print `SUMMARY.md`, open the HTML report, compare two runs (`FLAKES.md`) |
 | `evidence scrub\|scan <dir> [--values-file f]` | the pipeline by hand on a folder; `scan` exits 1 on a finding and prints file and kind, never a value |
 | `check-tests [dir...] [--engine ts\|regex]` | the test-code lint gate: forbids browser launches, `newContext`, `proxy`, `launchOptions`, `ignoreDefaultArgs`, network and process modules, `process.env` and bare `fetch` in test dirs |
-| `demo [--headed] [--demo-dir d] [--target t]` | starts the bundled demo app, runs the quickstart suite against it through `run` with the app's ephemeral origins as overrides, prints where the contact sheets are (`--plant-secret` is planned) |
+| `demo [--headed] [--plant-secret] [--demo-dir d] [--target t]` | starts the bundled demo app, runs the quickstart suite against it through `run` with the app's ephemeral origins as overrides, and prints where `SUMMARY.md` and the contact sheets are (`credless-demo/reports/` under the working directory when run from the npm package). `--plant-secret` adds one spec that leaks the demo's stand-in password into the output on purpose and exits 0 only if the run failed with a `LEAK` |
 | `version`, `help` | |
 | `mcp` | v0.2: a stdio MCP server over the same CLI |
 

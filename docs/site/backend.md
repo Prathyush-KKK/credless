@@ -1,4 +1,4 @@
-# Backend
+# Backend: the test API your dev and staging backend implements
 
 The kit needs seven routes on your backend, dev and staging only, behind five locks. Everything a backend team
 needs is in one document: the [backend brief](../../contract/BACKEND-BRIEF.md), with the routes, the locks, session

@@ -1,8 +1,8 @@
-# Dogfood: run the kit's own GitHub Action against the bundled demo app on every push and pull request. No secret is
-# configured or needed; the demo target writes its own stand-in runner key (apps/demo/src/fake-secrets.json) and the
-# action's `key` input is left empty. The evidence becomes an artifact (14 days) and the verdict one PR comment.
-#
-# Before launch: pin the actions and the container image to digests (Renovate keeps them current).
+# Reference workflow (not active in this repository, which has no hosted CI: the maintainer runs `pnpm verify`
+# locally before every merge and release). Copy it into `.github/workflows/` of a repository where GitHub Actions
+# runs: it runs the credless GitHub Action against the bundled demo app with no secret configured; the demo writes
+# its own stand-in runner key and the action's `key` input stays empty. The evidence becomes an artifact (14 days)
+# and the verdict one pull-request comment. Pin `uses:` lines to commit SHAs if your policy requires it.
 name: demo-e2e
 
 on:
@@ -26,13 +26,13 @@ jobs:
       contents: read
       pull-requests: write # the one upserted comment; read-only on forks, where the action skips the comment
     container:
-      image: mcr.microsoft.com/playwright:v1.64.1-noble # TODO before launch: pin by digest
+      image: mcr.microsoft.com/playwright:v1.64.1-noble
     steps:
-      - uses: actions/checkout@v4 # TODO before launch: pin to a SHA
+      - uses: actions/checkout@v4
 
-      - uses: pnpm/action-setup@v4 # TODO before launch: pin to a SHA
+      - uses: pnpm/action-setup@v4
 
-      - uses: actions/setup-node@v4 # TODO before launch: pin to a SHA
+      - uses: actions/setup-node@v4
         with:
           node-version: 24
           cache: pnpm

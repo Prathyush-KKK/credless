@@ -1,4 +1,4 @@
-# Configuration
+# Configuration reference: credless.config.ts and the persona catalog
 
 `credless.config.ts` exports `defineConfig({...})` from `credless/config`; zod validates it and returns it. Every
 host rule is a string, so the config is serialisable to workers and to `doctor`. The shapes below are the

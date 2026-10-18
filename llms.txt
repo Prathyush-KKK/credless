@@ -1,0 +1,34 @@
+# credless
+
+> credless is an open-source (Apache-2.0) Playwright toolkit for signed-in, multi-user end-to-end tests on dev or staging that AI coding agents (Claude Code, Cursor, Codex) and people can run without the long-lived credential ever reaching the agent, the test code or the test evidence. npm package: `credless`. Node.js 22.18+, @playwright/test 1.64+.
+
+How it works, in one paragraph: synthetic personas (owner, member, guest, ...) get one real account per parallel worker, minted by a dev-only "test API" on the app's backend (seven routes behind five server-side locks). The CLI reads the test-API key once and hands it to a loopback broker; test workers and browsers use a per-run token and never see the key. Each persona's browser runs behind its own egress proxy that refuses production and unlisted hosts (redirects, WebSockets and WebRTC included). Screenshots, traces and reports are scrubbed and scanned before they are kept, and the run fails if a secret value is found.
+
+Key commands: `npx credless demo` (bundled demo app, no setup), `npx credless demo --plant-secret` (proves a leaked value fails the run), `npx credless init`, `npx credless doctor --target <t>`, `npx credless run --target <t>`.
+
+Key test API: `import { test, expect, about } from 'credless'`; fixtures `personas` (`personas.open('owner', 'member')` returns signed-in browser sessions), `control` (one-call state setup through the test API), `guard`, `shot`, `sensitive`.
+
+## Docs
+
+- [README](https://github.com/Prathyush-KKK/credless/blob/main/README.md): what it is, quickstart, a full example test, comparison with storageState, Clerk testing tokens, Playwright MCP and others, FAQ
+- [Quickstart](https://github.com/Prathyush-KKK/credless/blob/main/docs/site/quickstart.md): the demo, then your own app
+- [Concepts](https://github.com/Prathyush-KKK/credless/blob/main/docs/site/concepts.md): personas, namespaces, slots, the test API, the broker, the egress guard, evidence
+- [Configuration](https://github.com/Prathyush-KKK/credless/blob/main/docs/site/configuration.md): every field of credless.config.ts
+- [CLI](https://github.com/Prathyush-KKK/credless/blob/main/docs/site/cli.md): commands, flags, exit codes
+- [Backend brief](https://github.com/Prathyush-KKK/credless/blob/main/contract/BACKEND-BRIEF.md): what a backend implements (seven routes, five locks), with notes for Spring Boot, Rails, Django, Laravel, Next.js
+- [Core contract (OpenAPI 3.1)](https://github.com/Prathyush-KKK/credless/blob/main/contract/core.openapi.yaml)
+- [Evidence](https://github.com/Prathyush-KKK/credless/blob/main/docs/site/evidence.md): the report folder, SUMMARY.md, triage
+
+## Agents
+
+- [Agent Skill (SKILL.md)](https://github.com/Prathyush-KKK/credless/blob/main/packages/kit/skills/e2e-testing/SKILL.md): the testing method an agent follows
+- [Agents guide](https://github.com/Prathyush-KKK/credless/blob/main/docs/site/agents.md): Claude Code plugin and hook, Cursor rule, AGENTS.md snippet
+
+## Security
+
+- [SECURITY.md](https://github.com/Prathyush-KKK/credless/blob/main/SECURITY.md): threat model, claims made and not made, disclosure. credless is not a security boundary; the boundaries are the broker process and the backend's locks.
+
+## Optional
+
+- [FAQ](https://github.com/Prathyush-KKK/credless/blob/main/docs/site/faq.md)
+- [Research behind the design](https://github.com/Prathyush-KKK/credless/tree/main/docs/research)

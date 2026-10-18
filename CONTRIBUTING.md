@@ -14,12 +14,17 @@ corepack enable                      # pnpm, the version package.json pins
 pnpm install --frozen-lockfile       # install scripts are off for every dependency (.npmrc); keep it that way
 pnpm check                           # biome, typecheck, unit tests, contract, catalog, skill copy and shape, test-code gate, org gate, action tests
 pnpm test                            # check plus the self-tests through the runner (scrub, scan and leak check run too)
+pnpm verify                          # the release gate: test, the demo, the build, and the packed tarball installed into a blank project
 ```
 
-Node 22.18 or later runs the workspace (every `.ts` is erasable); the published package declares Node 24.12 or
-later. The self-tests need Playwright's browsers: `pnpm --filter ./packages/kit exec playwright install chromium`,
-or run inside the Playwright image (`mcr.microsoft.com/playwright:v1.64.1-noble`), which is what CI does. Nothing
-is installed on the host by the kit itself.
+Node 22.18 or later (every `.ts` is erasable, so Node runs the sources directly). The self-tests need Playwright's
+browsers: `pnpm --filter ./packages/kit exec playwright install chromium`, or work inside the Playwright image
+(`mcr.microsoft.com/playwright:v1.64.1-noble`). Nothing is installed on the host by the kit itself.
+
+There is no hosted CI. `pnpm verify` is the gate: the maintainer runs it before merging a pull request and before
+every release, and `pnpm release` refuses to publish unless it passes. Run it yourself before you open a pull
+request and paste the last lines (the `PASS` lines and the smoke-test summary) into the description. If you run
+GitHub Actions in your fork, [`docs/ci/checks.yml`](docs/ci/checks.yml) is the same gate as a workflow.
 
 ## Rules that are not negotiable
 
@@ -42,8 +47,8 @@ is installed on the host by the kit itself.
    security model; label it `rfc` and leave it open a week. Small fixes can go straight to a pull request.
 2. One pull request, one change. Sign off your commits (`git commit -s`, the
    [Developer Certificate of Origin](https://developercertificate.org/)); there is no CLA.
-3. Add a changeset for anything a user sees: `pnpm changeset`, pick the bump, write the line a user reads in the
-   changelog. Internal refactors need none.
+3. For anything a user sees, write the line a user would read in the changelog in the pull-request description;
+   it goes into [CHANGELOG.md](CHANGELOG.md) at release. Internal refactors need none.
 4. **Contract, client, broker allowlist and reference server move together.** A change to
    `contract/core.openapi.yaml` lands in the same pull request as `CORE_ROUTES`, the client, the demo's handler and
    the docs; `pnpm contract:check` fails otherwise.
@@ -52,9 +57,11 @@ is installed on the host by the kit itself.
 6. Words the tests look for are config, not literals in tests. Test code uses the kit's fixtures only: no
    `chromium.launch`, `newContext`, `proxy`, `launchOptions`, network or process modules, `process.env` or bare
    `fetch` (the lint gate and `check-tests` refuse them).
-7. `pnpm test` green locally; CI runs the same on Linux and Windows.
-8. Two approving reviews are required for `plugins/`, `action/` and `packages/kit/src/runner/` (an auto-updating
-   skill or a CI action is a one-change path into every machine that installed it). One review elsewhere.
+7. `pnpm verify` green locally, with its last lines in the pull-request description. Say if you could also run it
+   on Windows or macOS; the maintainer runs it on Linux before merging.
+8. Changes to `plugins/`, `action/`, `packages/kit/skills/` and `packages/kit/src/runner/` get the slowest review:
+   an auto-updating skill, a CI action or the runner's key handling is a one-change path into every machine that
+   installed it. Expect questions there, and expect small, single-purpose pull requests to land fastest.
 
 ## What a good adapter pull request contains
 
@@ -65,8 +72,8 @@ is installed on the host by the kit itself.
   touches the browser.
 - A docs page under `docs/site/adapters/` with the auth model, how a session is minted, which of the five locks the
   backend side can implement, the mail or OTP story, and the known limits.
-- A row in the adapters table in `docs/site/adapters.md` with its tier (`core`: we maintain it; `community`: a
-  named maintainer, CI against the mock, release-notes credit).
+- A row in the adapters table in `docs/site/adapters.md` with its tier (`core`: maintained in this repository; `community`: a
+  named maintainer, tests against the mock, release-notes credit).
 
 ## Reporting a bug
 
@@ -76,10 +83,12 @@ yours and they are large. A finding where a secret value survived the scrub is a
 
 ## Governance
 
-Decisions that change the contract, the config schema or the security model go through an `rfc` issue. Maintainers
-are listed in `MAINTAINERS.md` once there is more than one; the stated intent is to move the repository to a
-`credless-dev` organisation and add an outside maintainer within six months of the first release. Release tags are
-signed; the plugin marketplace points at release tags, never at `main`.
+credless is built and maintained by one independent developer, [@Prathyush-KKK](https://github.com/Prathyush-KKK).
+There is no company behind it and no paid tier. Decisions that change the contract, the config schema or the
+security model go through an `rfc` issue so they happen in public. A second maintainer is welcome once someone has
+landed a few changes; they will be listed in `MAINTAINERS.md` and added to `.github/CODEOWNERS`. Releases are cut
+locally with `pnpm release` (which runs `pnpm verify` first) and tagged `v<version>`; the plugin marketplace points
+at release tags, never at `main`.
 
 ## Code of conduct
 

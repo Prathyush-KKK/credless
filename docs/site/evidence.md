@@ -1,4 +1,4 @@
-# Evidence
+# Evidence: the report folder, SUMMARY.md, contact sheets and triage
 
 A run leaves `reports/<run id>/` (the run id is a UTC stamp plus four random characters, `20261018T101500Z-ab12`).
 The folder exists only when the pipeline finished: scrub, scan, quarantine, reports, marker, move.

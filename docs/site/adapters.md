@@ -1,4 +1,4 @@
-# Adapters
+# Adapters: session providers, key sources, mail sinks and app signals
 
 Five interfaces in `packages/kit/src/types.ts`, exported from `credless/adapters`. An adapter is about 150 lines;
 it returns a `Secret` for every sensitive value and never prints one.

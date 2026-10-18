@@ -222,8 +222,8 @@ is a decision, not a line.
 
 ## 12. Toolchain constraints
 
-Node ≥ 24.12 is what the published package declares; the workspace also runs on Node 22.18+ because every `.ts` is
-erasable (no enums, no parameter properties, no namespaces, no `import =`) and relative imports carry the `.ts`
+Node ≥ 22.18 is what the published package and the workspace declare: Node runs the sources directly because every
+`.ts` is erasable (no enums, no parameter properties, no namespaces, no `import =`) and relative imports carry the `.ts`
 extension (`rewriteRelativeImportExtensions`). Type check with TypeScript 5.9 (`pnpm typecheck`); TypeScript 7 is
 evaluated in v0.2. ESM only. Biome 2.5 formats and lints (120 columns, single quotes, trailing commas); the
 override for `**/e2e/**`, `test/selftest/**` and `packages/kit/templates/**` forbids network and process imports and

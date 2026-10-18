@@ -1,4 +1,4 @@
-# Agents
+# AI coding agents: the Agent Skill, the Claude Code plugin, Cursor and AGENTS.md
 
 The kit is test infrastructure a coding agent uses. The agent writes tests with the fixtures, starts runs through
 the CLI (or asks a person or CI to), and reads the evidence. It never holds the key, never signs in as a person,

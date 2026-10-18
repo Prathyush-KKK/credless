@@ -59,9 +59,10 @@ representative at an online or offline event.
 ## Enforcement
 
 Instances of abusive, harassing, or otherwise unacceptable behavior may be
-reported to the community leaders responsible for enforcement at
-<!-- TODO before launch: two contacts, one of them not the founder -->
-the maintainers (contact to be published here before the first release).
+reported to the community leaders responsible for enforcement: today that is the
+maintainer, [@Prathyush-KKK](https://github.com/Prathyush-KKK), reachable privately through the contact details
+on that GitHub profile. If a report concerns the maintainer, say so in the report and it will be handled by an
+outside reviewer chosen with you.
 All complaints will be reviewed and investigated promptly and fairly.
 
 All community leaders are obligated to respect the privacy and security of the

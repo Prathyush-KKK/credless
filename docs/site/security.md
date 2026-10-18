@@ -1,4 +1,4 @@
-# Security, the short form
+# Security model in brief
 
 The full text, kept current, is [SECURITY.md](../../SECURITY.md). This page is the map.
 

@@ -25,7 +25,7 @@ inputs:
     description: "The target to run against, a key of `targets` in credless.config.ts. Production targets are refused by the CLI. With `command: demo` it only names the artifact; the demo picks its own target."
     required: true
   command:
-    description: "`run` (default) runs `credless run --target <target>`; `demo` runs `credless demo`, which starts the bundled demo app and the quickstart suite and needs no key (this repository's dogfood)."
+    description: "`run` (default) runs `credless run --target <target>`; `demo` runs `credless demo`, which starts the bundled demo app and the quickstart suite and needs no key (the no-key way to try the action)."
     required: false
     default: run
   key:
@@ -87,7 +87,7 @@ outputs:
 runs:
   using: composite
   steps:
-    - uses: actions/setup-node@v4 # TODO before launch: pin to a SHA
+    - uses: actions/setup-node@v4
       with:
         node-version: ${{ inputs.node-version }}
 
@@ -167,7 +167,7 @@ runs:
     - name: Keep the evidence
       id: upload
       if: always()
-      uses: actions/upload-artifact@v4 # TODO before launch: pin to a SHA
+      uses: actions/upload-artifact@v4
       with:
         name: credless-reports-${{ inputs.target }}-${{ github.run_id }}-${{ github.run_attempt }}
         path: ${{ inputs.working-directory }}/${{ inputs.reports-dir }}/

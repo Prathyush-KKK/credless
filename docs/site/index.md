@@ -1,6 +1,8 @@
-# credless docs
+# credless documentation
 
-Signed-in, multi-user Playwright E2E your coding agent runs without the key.
+credless runs signed-in, multi-user Playwright end-to-end tests on dev or staging, written by you or by an AI
+coding agent (Claude Code, Cursor, Codex), without the long-lived credential ever reaching the agent, the test code or
+the evidence. Start with the [quickstart](quickstart.md).
 
 | Page | What it answers |
 |---|---|
@@ -15,4 +17,6 @@ Signed-in, multi-user Playwright E2E your coding agent runs without the key.
 | [Security](security.md) | The short form of [SECURITY.md](../../SECURITY.md) |
 | [FAQ](faq.md) | Why not `storageState`, why a broker, is it a sandbox (no), and the name |
 
-Research and plans the kit was designed from, as dated working documents: [research](../research/), [plans](../plans/).
+The research and the technical design the kit was built from, as dated working documents:
+[research](../research/), [technical plan](../plans/PLAN-TECH.md). Reference CI workflows for forks and for your own
+repositories: [docs/ci](../ci/).
