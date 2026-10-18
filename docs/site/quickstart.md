@@ -79,6 +79,7 @@ tells you what is missing.
 ### 4. Run
 
 ```sh
+npx credless slot e                  # once per machine: its own letter, so two machines never share accounts
 npx credless doctor --target dev     # tools, browsers, slot, staging permissions, key source by presence, target probe; reads no secret
 npx credless health --target dev     # the test API is on; every sink is wired
 npx credless run --target dev        # the suite on your slot

@@ -24,7 +24,8 @@ export function configSource(
     'export default {',
     '  targets: {',
     "    selftest: { web: 'http://127.0.0.1:1', api: 'http://127.0.0.1:1', kind: 'local' },",
-    "    dev: { web: 'https://dev.app.example', api: 'https://dev.api.example' },",
+    // .test, not .example: doctor treats .example and .invalid origins as `init` placeholders and does not probe them
+    "    dev: { web: 'https://dev.app.test', api: 'https://dev.api.test' },",
     ...(options.extraTargets ?? []).map((line) => `    ${line}`),
     '  },',
     "  production: { domains: ['example.com'], words: ['prod', 'production'] },",
@@ -56,6 +57,8 @@ export interface TempProject {
 }
 
 export interface TempProjectOptions {
+  /** more target lines for the config (a production-shaped one makes the loader refuse the whole config) */
+  extraTargets?: string[];
   key?: string;
   /** write a standalone Playwright project (config, one passing test); `spec` replaces the test body */
   playwright?: boolean;
@@ -85,7 +88,7 @@ export function makeProject(options: TempProjectOptions = {}): TempProject {
   const stagingDir = path.join(dir, 'staging');
   const reportsDir = path.join(dir, 'reports');
   const configFile = path.join(dir, 'credless.config.ts');
-  fs.writeFileSync(configFile, configSource({ key: options.key, reportsDir }));
+  fs.writeFileSync(configFile, configSource({ key: options.key, reportsDir, extraTargets: options.extraTargets }));
   fs.writeFileSync(path.join(dir, 'personas.yaml'), CATALOG);
   fs.writeFileSync(path.join(dir, 'package.json'), '{ "name": "tmp-project", "private": true, "type": "module" }\n');
   try {

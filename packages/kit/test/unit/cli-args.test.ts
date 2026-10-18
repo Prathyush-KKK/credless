@@ -1,7 +1,10 @@
 // The argv parser and the dispatch: usage errors return EXIT.USAGE with one line on stderr, never a throw.
+
+import fs from 'node:fs';
+import path from 'node:path';
 import { PassThrough } from 'node:stream';
 import { afterEach, describe, expect, it } from 'vitest';
-import { main, parseArgs } from '../../src/runner/cli.ts';
+import { COMMANDS, commandHelp, main, parseArgs, suggestCommand } from '../../src/runner/cli.ts';
 import { EXIT } from '../../src/types.ts';
 import { cli, makeProject, type TempProject } from './helpers/tmp-project.ts';
 
@@ -84,8 +87,83 @@ describe('main', () => {
       const t = io();
       expect(await main(argv, t), argv.join(' ')).toBe(EXIT.USAGE);
       expect(t.err(), argv.join(' ')).toMatch(/^credless: /);
+      // one line and a pointer, never the whole command list
+      expect(t.err(), argv.join(' ')).not.toContain('Exit codes');
+      expect(t.err().trim().split('\n').length, argv.join(' ')).toBeLessThanOrEqual(2);
     }
   });
+
+  it("help <command>, <command> --help and -h print that command's usage and examples", async () => {
+    for (const name of Object.keys(COMMANDS)) {
+      const text = commandHelp(name);
+      expect(text, name).toMatch(new RegExp(`^Usage: credless ${name}`));
+      expect(text, name).toMatch(/\nExamples:\n {2}credless /);
+    }
+    for (const argv of [
+      ['help', 'run'],
+      ['run', '--help'],
+      ['run', '-h'],
+      ['run', '--target', 'dev', '--help'],
+    ]) {
+      const t = io();
+      expect(await main(argv, t), argv.join(' ')).toBe(EXIT.PASS);
+      expect(t.out(), argv.join(' ')).toMatch(/^Usage: credless run --target t/);
+    }
+    // after --, --help belongs to Playwright: the run goes on (and stops for want of a config here)
+    const passthrough = io();
+    await main(['run', '--target', 'dev', '--', '--help'], {
+      ...passthrough,
+      env: {},
+      cwd: path.parse(process.cwd()).root,
+    });
+    expect(passthrough.out()).not.toContain('Usage: credless run');
+    const demo = io();
+    expect(await main(['demo', '--help'], demo)).toBe(EXIT.PASS);
+    expect(demo.out()).toContain('--plant-secret');
+  });
+
+  it('suggests the command a typo was close to, and nothing for a far one', async () => {
+    expect(suggestCommand('rnu')).toBe('run');
+    expect(suggestCommand('docter')).toBe('doctor');
+    expect(suggestCommand('repotr')).toBe('report');
+    expect(suggestCommand('check-test')).toBe('check-tests');
+    expect(suggestCommand('xyzzy')).toBeNull();
+    const typo = io();
+    expect(await main(['doctr'], typo)).toBe(EXIT.USAGE);
+    expect(typo.err()).toMatch(/^credless: unknown command: doctr\ncredless: did you mean "doctor"\?/);
+    const topic = io();
+    expect(await main(['help', 'seeed'], topic)).toBe(EXIT.USAGE);
+    expect(topic.err()).toMatch(/no command "seeed"; did you mean "seed"\?/);
+  });
+
+  it('report list, and report summary defaulting to the latest run', async () => {
+    const p = makeProject();
+    made.push(p);
+    const empty = io();
+    expect(await main(['report'], { ...empty, cwd: p.dir })).toBe(EXIT.USAGE);
+    expect(empty.err()).toMatch(/no runs in .*reports yet/);
+    const reports = path.join(p.dir, 'reports');
+    for (const [id, verdict] of [
+      ['20261018T100000Z-aaaa', 'FAIL'],
+      ['20261018T110000Z-bbbb', 'PASS'],
+    ] as const) {
+      fs.mkdirSync(path.join(reports, id), { recursive: true });
+      fs.writeFileSync(path.join(reports, id, 'SUMMARY.md'), `# Run ${id}: ${verdict}\n\nbody of ${id}\n`);
+    }
+    fs.mkdirSync(path.join(reports, 'not-a-run'));
+    const list = io();
+    expect(await main(['report', 'list'], { ...list, cwd: p.dir })).toBe(EXIT.PASS);
+    expect(list.out().trim().split('\n')).toEqual([
+      `20261018T110000Z-bbbb  PASS    ${path.join('reports', '20261018T110000Z-bbbb')}`,
+      `20261018T100000Z-aaaa  FAIL    ${path.join('reports', '20261018T100000Z-aaaa')}`,
+    ]);
+    const latest = io();
+    expect(await main(['report'], { ...latest, cwd: p.dir })).toBe(EXIT.PASS);
+    expect(latest.out()).toContain('body of 20261018T110000Z-bbbb');
+    const named = io();
+    expect(await main(['report', 'summary', '20261018T100000Z-aaaa'], { ...named, cwd: p.dir })).toBe(EXIT.PASS);
+    expect(named.out()).toContain('body of 20261018T100000Z-aaaa');
+  }, 60_000);
 
   it('runs check-tests on a directory and exits 1 on findings, 0 when clean', async () => {
     const p = makeProject({ playwright: true });

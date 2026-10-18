@@ -15,6 +15,18 @@ import { findConfigFile } from './project.ts';
 import { checkSlot, resolveSlot, SlotError } from './slot.ts';
 import { isPrivateDir, stagingDirPath } from './staging.ts';
 
+/**
+ * An origin no real target can have: a host under the reserved `.example` or `.invalid` names (RFC 2606, 6761), which
+ * is what `init` writes until someone puts their own dev or staging origins in.
+ */
+export function isPlaceholderOrigin(origin: string): boolean {
+  try {
+    return /(^|\.)(example|invalid)$/i.test(new URL(origin).hostname);
+  } catch {
+    return false;
+  }
+}
+
 export interface DoctorInput {
   target?: string;
   offline?: boolean;
@@ -290,7 +302,15 @@ export async function doctor(input: DoctorInput = {}): Promise<DoctorReport> {
   // --- the target, without a key
   if (config && remote) {
     section(`The target (${config.endpoints.web}, ${config.endpoints.testApi})`);
-    if (input.offline) ok('not probed (--offline)');
+    const placeholders = [config.endpoints.web, config.endpoints.testApi].filter(isPlaceholderOrigin);
+    if (placeholders.length) {
+      // `init` writes reserved `.example` origins on purpose; they never resolve, so probing them only blames the network.
+      // Offline it is a warning, like a slot not set yet: a first `doctor --offline` after `init` checks the machine,
+      // and the origins are a choice `init` cannot make for the person
+      (input.offline ? warn : fail)(
+        `${placeholders.join(' and ')} ${placeholders.length > 1 ? 'are placeholders' : 'is a placeholder'} from \`${CLI_NAME} init\`: set the real origins of target ${config.target} in ${configFile ? path.relative(cwd, configFile) || configFile : 'the config'}`,
+      );
+    } else if (input.offline) ok('not probed (--offline)');
     else {
       const web = await probe(`${config.endpoints.web}/`);
       if (!web) fail('web app unreachable: network or VPN');

@@ -73,8 +73,8 @@ describe('resolution and checks', () => {
 describe('Q02 through the CLI', () => {
   it('stops before any secret: no slot, then no key; the slot file counts; a bad letter is refused', () => {
     const p = project();
-    const noSlot = /no slot for dev/;
-    const noKey = /no runner key \(env source\)/;
+    const noSlot = /no slot for dev: run `credless slot <letter>`/;
+    const noKey = /no runner key: CREDLESS_RUNNER_KEY is not set\. To fix: set CREDLESS_RUNNER_KEY/;
     const tests = cli(p, ['run', '--target', 'dev', '--native']);
     expect(tests.status, tests.all).toBe(2);
     expect(tests.stderr).toMatch(noSlot);
@@ -95,6 +95,28 @@ describe('Q02 through the CLI', () => {
     expect(local.stderr).not.toMatch(noSlot);
     expect(local.stderr).not.toMatch(noKey);
   }, 180_000);
+
+  it('`credless slot` shows, sets and refuses a slot, and a run then uses it', () => {
+    const p = project();
+    const file = path.join(p.home, '.config', 'credless', 'slot');
+    expect(cli(p, ['slot']).stdout).toMatch(/no slot set on this machine; `credless slot <letter>` sets one/);
+    const upper = cli(p, ['slot', 'E']);
+    expect(upper.status).toBe(2);
+    expect(upper.stderr).toMatch(/one lowercase letter, a to z \(got "E"\)/);
+    expect(upper.stderr).toContain('Run `credless help slot`');
+    expect(fs.existsSync(file)).toBe(false);
+    const set = cli(p, ['slot', 'g']);
+    expect(set.status, set.all).toBe(0);
+    expect(set.stdout).toMatch(/slot g written to .*: runs from this machine use the accounts of namespaces g0, g1/);
+    expect(fs.readFileSync(file, 'utf8')).toBe('g\n');
+    expect(cli(p, ['slot']).stdout).toMatch(/^slot g \(from .*slot\)/);
+    // past the slot question: a run now stops at the key
+    expect(cli(p, ['run', '--target', 'dev', '--native']).stderr).toMatch(/no runner key/);
+    fs.writeFileSync(file, 'gg\n');
+    const malformed = cli(p, ['slot']);
+    expect(malformed.status).toBe(2);
+    expect(malformed.stderr).toMatch(/one lowercase letter .*got "gg".*`credless slot <letter>` replaces the file/);
+  }, 120_000);
 
   it('refuses a production-shaped target before the slot question', () => {
     const p = project();

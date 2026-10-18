@@ -95,6 +95,30 @@ describe('the probe without a key', () => {
     env: p.env,
   });
 
+  it('a placeholder origin from init is named as such and never probed', async () => {
+    const p = project({
+      extraTargets: ["staging: { web: 'https://app.staging.example', api: 'https://api.staging.example' },"],
+    });
+    let probed = 0;
+    const r = await doctor({
+      ...base(p),
+      target: 'staging',
+      probe: async () => {
+        probed += 1;
+        return null;
+      },
+    });
+    const text = r.lines.join('\n');
+    expect(text).toMatch(/FAIL\s+https:\/\/app\.staging\.example and https:\/\/api\.staging\.example are placeholders/);
+    expect(text).toMatch(/set the real origins of target staging in credless\.config\.ts/);
+    expect(text).not.toMatch(/network or VPN/);
+    expect(probed).toBe(0);
+    // offline, the same words as a warning: `doctor --offline` right after `init` still passes
+    const offline = await doctor({ ...base(p), target: 'staging', offline: true });
+    expect(offline.lines.join('\n')).toMatch(/warn\s+https:\/\/app\.staging\.example and .* are placeholders/);
+    expect(offline.failed).toBe(0);
+  });
+
   it('401 is the lock working, 404 is not deployed, unreachable fails', async () => {
     const p = project();
     const ok = await doctor({

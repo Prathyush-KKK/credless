@@ -14,6 +14,7 @@ import {
   namespaceFor,
   TestApiClient,
 } from './deps.ts';
+import { missingKeyMessage } from './messages.ts';
 import { findProject } from './project.ts';
 import { checkSlot, resolveSlot, SlotError } from './slot.ts';
 
@@ -89,7 +90,7 @@ async function prepare(
   try {
     key = await createKeySource(config.kit.key).read();
   } catch (error) {
-    say(`no runner key (${config.kit.key.source} source): ${message(error)}`);
+    say(missingKeyMessage(config.kit.key.source, message(error)));
     return EXIT.USAGE;
   }
   delete env[ENV.RUNNER_KEY];

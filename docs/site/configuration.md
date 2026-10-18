@@ -56,7 +56,7 @@ match a production host is refused at load.
 |---|---|---|
 | `catalog` | string | path of the persona catalog YAML, relative to the config file |
 | `addressPattern` | string | a regular expression source every rendered address must match; the test API enforces the same range on its side |
-| `slot` | string? | the slot letter `^[a-z]$`, default `a`; `--slot` overrides |
+| `slot` | string? | not read by `run`: the slot belongs to the machine, not the project, since a letter in a committed file would be every machine's. Set it with `credless slot <letter>`, `CREDLESS_SLOT` or `--slot` |
 | `workers` | number? | default 2 for a remote target; `--workers` overrides |
 
 ### The catalog (`personas.yaml`)

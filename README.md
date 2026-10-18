@@ -163,6 +163,7 @@ only short-lived sessions for synthetic accounts, which the run revokes when it 
 
 ```sh
 npx credless init                     # credless.config.ts, personas.yaml, an example spec, AGENTS.md snippet, Cursor rule, CI workflow
+npx credless slot e                   # once per machine: its own letter, so two machines never share test accounts
 npx credless doctor --target staging  # is this machine ready; reads no secret
 npx credless health --target staging  # is the test API on, with every mail, push and analytics sink captured
 npx credless run --target staging     # the suite; the runner reads its key at run time

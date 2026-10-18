@@ -196,6 +196,32 @@ async function run() {
     help.all,
   );
 
+  const runHelp = cli(['help', 'run']);
+  const typo = cli(['rnu']);
+  check(
+    `${NAME} help run prints its usage and examples; a typo gets a suggestion`,
+    runHelp.status === 0 &&
+      runHelp.stdout.startsWith(`Usage: ${NAME} run --target`) &&
+      runHelp.stdout.includes('Examples:') &&
+      typo.status === 2 &&
+      typo.stderr.includes('did you mean "run"?'),
+    `${runHelp.all}\n${typo.all}`,
+  );
+
+  // the slot file goes under a throwaway config home, never the real one
+  const slotHome = fs.mkdtempSync(path.join(os.tmpdir(), 'smoke-slot-'));
+  const slotEnv = { ...env, XDG_CONFIG_HOME: slotHome, APPDATA: slotHome };
+  const setSlot = exec(bin, ['slot', 'q'], { cwd: project, env: slotEnv });
+  const showSlot = exec(bin, ['slot'], { cwd: project, env: slotEnv });
+  check(
+    `${NAME} slot q writes the slot file and ${NAME} slot reads it back`,
+    setSlot.status === 0 &&
+      fs.readFileSync(path.join(slotHome, NAME, 'slot'), 'utf8') === 'q\n' &&
+      showSlot.stdout.startsWith('slot q (from '),
+    `${setSlot.all}\n${showSlot.all}`,
+  );
+  fs.rmSync(slotHome, { recursive: true, force: true });
+
   const version = cli(['version']);
   check(
     `${NAME} version prints ${VERSION}`,
@@ -274,6 +300,19 @@ async function run() {
     plant.seconds,
   );
   check(`${NAME} demo --plant-secret: the planted value is in none of its output`, !echoed);
+
+  // the project has no runs of its own yet, so report reads the demo's: the plant run is the latest
+  const list = cli(['report', 'list']);
+  const latest = cli(['report']);
+  check(
+    `${NAME} report list shows the demo's two runs; ${NAME} report prints the latest SUMMARY.md`,
+    list.status === 0 &&
+      list.stdout.trim().split('\n').length === 2 &&
+      list.stdout.includes(path.join('credless-demo', 'reports')) &&
+      latest.status === 0 &&
+      /^# Run \S+: FAIL$/m.test(latest.stdout),
+    echoed ? '(output withheld)' : `${list.all}\n${latest.all.slice(0, 2000)}`,
+  );
 
   const leftovers = fs.readdirSync(os.tmpdir()).filter((n) => n.startsWith(`${NAME}-demo-`));
   check('the demo removed its temp project copies and key dirs', leftovers.length === 0, leftovers.join('\n'));

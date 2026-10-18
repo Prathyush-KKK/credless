@@ -151,11 +151,15 @@ export interface TargetUrlConfig {
   targets: Record<string, Target>;
 }
 
+/** The message for a target the config does not define: the name the person typed, and the ones that exist. */
+function unknownTarget(target: string, defined: readonly string[]): string {
+  return `unknown target "${target}": the config defines ${defined.length ? defined.join(', ') : 'no targets'}`;
+}
+
 /** Throws unless the URL is http(s) without credentials, not production, one of the target's own hosts, and https for a remote target. */
 export function assertTargetUrl(url: string, targetName: string, config: TargetUrlConfig): URL {
   const target = config.targets[targetName];
-  if (!target)
-    throw new Error(`${ENV.TARGET} must be one of ${Object.keys(config.targets).join(', ')} (got "${targetName}")`);
+  if (!target) throw new Error(unknownTarget(targetName, Object.keys(config.targets)));
   let parsed: URL;
   try {
     parsed = new URL(url);
@@ -236,8 +240,7 @@ export function loadRunConfig(
   const targetName = (env[ENV.TARGET] ?? '').trim();
   if (!targetName) throw new Error(`${ENV.TARGET} is not set (one of ${Object.keys(kitConfig.targets).join(', ')})`);
   const target = kitConfig.targets[targetName];
-  if (!target)
-    throw new Error(`${ENV.TARGET} must be one of ${Object.keys(kitConfig.targets).join(', ')} (got "${targetName}")`);
+  if (!target) throw new Error(unknownTarget(targetName, Object.keys(kitConfig.targets)));
 
   const strip = (origin: string) => origin.replace(/\/+$/, '');
   const web = strip(env[ENV.WEB_URL] ?? target.web);

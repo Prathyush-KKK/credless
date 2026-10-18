@@ -22,6 +22,7 @@ npx credless demo --plant-secret    # plant a stand-in secret on purpose and wat
 
 ```sh
 npx credless init                   # credless.config.ts, personas.yaml, an example spec, AGENTS.md snippet, Cursor rule, CI workflow
+npx credless slot e                 # once per machine: its own letter, so two machines never share test accounts
 npx credless doctor --target staging
 npx credless run --target staging
 ```

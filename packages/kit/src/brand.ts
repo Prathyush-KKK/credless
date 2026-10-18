@@ -1,4 +1,4 @@
-// The kit's name, in the one place code reads it from. A rename is: the three constants below, `name` and the `bin` key in
+// The kit's name, in the one place code reads it from. A rename is: the constants below, `name` and the `bin` key in
 // packages/kit/package.json, and the `credless` dependency key in apps/demo/package.json. Nothing else in the code
 // spells the name: env var names, the canary host, staging paths and messages all derive from here.
 
@@ -10,6 +10,9 @@ export const ENV_PREFIX = 'CREDLESS_' as const;
 
 /** The command the `bin` entry installs (`npx credless run --target dev`). */
 export const CLI_NAME = 'credless' as const;
+
+/** Where the docs are: messages that point at the backend brief or a doc page link under it. */
+export const REPO_URL = 'https://github.com/Prathyush-KKK/credless' as const;
 
 /**
  * The host the canary request goes to after every persona context is created. It is under the reserved `.invalid`

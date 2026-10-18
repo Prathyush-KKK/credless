@@ -16,7 +16,9 @@ The kit creates **one real account per persona per namespace**. A namespace is a
 parallel index: `a0`, `a1`, `b0`. The account handle the test API knows is `<namespace>.<persona>` (`a0.owner`), and
 its address is the catalog's template rendered into the configured range (`qa+a0-owner@example.com`).
 
-The **slot** is one lowercase letter per machine or agent (`personas.slot`, `--slot`, default `a`; CI uses `z`).
+The **slot** is one lowercase letter per machine or agent, set once with `credless slot <letter>` (or
+`CREDLESS_SLOT`, or `--slot` for one run; CI uses `z`). A local target uses `a` when none is set; a remote target
+is refused until the machine has one.
 Two people, or a person and an agent, on different slots never share an account; two workers in one run never share
 one either. A lock per target and slot (`mkdir` in the staging dir, owner pid inside) stops two runs on the same
 slot from racing each other.

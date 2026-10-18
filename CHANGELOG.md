@@ -7,9 +7,10 @@ minor version may change the contract, the config schema or an adapter interface
 
 First public release.
 
-- CLI: `init`, `doctor` (with `--security` and `--offline`), `run` (slots, run locks, `--twice` flake report,
-  Docker or native), `health`, `seed`, `report`, `evidence scrub|scan`, `check-tests`, `demo` and
-  `demo --plant-secret`.
+- CLI: `init`, `doctor` (with `--security` and `--offline`), `slot`, `run` (slots, run locks, `--twice` flake
+  report, Docker or native), `health`, `seed`, `report` (`list`, and the latest run by default), `evidence
+  scrub|scan`, `check-tests`, `demo` and `demo --plant-secret`. `help <command>` and `<command> --help` print one
+  command's options and examples; a usage error is one line and a pointer; a mistyped command gets a suggestion.
 - Personas: a catalog of synthetic roles; one account per persona per parallel worker; several signed-in browsers in
   one test.
 - Test API: a seven-route core contract (OpenAPI 3.1) with an extension pattern, a backend brief with five locks, and

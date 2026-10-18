@@ -36,6 +36,7 @@ import {
   playwrightVersion,
 } from './docker.ts';
 import { acquireRunLock, LockHeldError } from './lock.ts';
+import { missingKeyMessage } from './messages.ts';
 import { findProject } from './project.ts';
 import { badSlotMessage, checkSlot, resolveSlot, SlotError } from './slot.ts';
 import {
@@ -192,9 +193,7 @@ export async function run(input: RunInput): Promise<ExitCode> {
       try {
         key = await createKeySource(config.kit.key).read();
       } catch (error) {
-        return usage(
-          `no runner key (${config.kit.key.source} source): ${message(error)}. Never paste it into a session`,
-        );
+        return usage(missingKeyMessage(config.kit.key.source, message(error)));
       }
     }
     delete env[ENV.RUNNER_KEY];

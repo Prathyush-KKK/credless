@@ -5,7 +5,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { KIT_NAME } from '../brand.ts';
+import { CLI_NAME, KIT_NAME } from '../brand.ts';
 import { DEFAULTS, ENV, PATTERNS } from '../types.ts';
 
 export type SlotSource = 'flag' | 'env' | 'file' | 'default' | 'none';
@@ -72,8 +72,8 @@ export function badSlotMessage(resolution: SlotResolution): string {
 }
 
 /** The message for a remote target with no slot: the exact "no slot for <target>" pattern tests look for. */
-export function noSlotMessage(target: string, resolution: SlotResolution): string {
-  return `no slot for ${target}: pass --slot <letter>, or write your letter to ${resolution.file}. Every machine has its own letter, so two runs never share accounts`;
+export function noSlotMessage(target: string): string {
+  return `no slot for ${target}: run \`${CLI_NAME} slot <letter>\` once on this machine (or pass --slot <letter>). Every machine has its own letter, so two runs never share accounts`;
 }
 
 export interface CheckSlotOptions {
@@ -91,5 +91,5 @@ export function checkSlot(resolution: SlotResolution, options: CheckSlotOptions)
     return { slot: resolution.slot, source: resolution.source };
   }
   if (options.local || options.needsNone) return { slot: DEFAULTS.slot, source: 'default' };
-  throw new SlotError(noSlotMessage(options.target, resolution));
+  throw new SlotError(noSlotMessage(options.target));
 }

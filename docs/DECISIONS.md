@@ -157,3 +157,29 @@ One line per proposal the v0.1 tasks raised against the frozen interfaces (`docs
   `files` listed `contract` before, but the folder never existed in `packages/kit`, so the tarball had neither.
 - Launch: the maintainer's display name is public by choice (an independent maintainer, the npm `author`); the private
   gate pattern for it, inherited from the predecessor, is dropped from the local list.
+
+## CLI for a first-time user
+
+- A newcomer walk-through (help, init, doctor, run, report from a blank project) found eight rough edges, fixed here.
+  `help <command>`, `<command> --help` and `-h` print the command's usage, what it does and examples, from one
+  `COMMANDS` table in `runner/cli.ts` that the command list is also drawn from; `--help` after `--` stays
+  Playwright's. A usage error prints one line and `Run \`credless help <command>\``, not the whole list (no command
+  at all still prints it, on stderr, exit 2). An unknown command keeps `unknown command: X` and adds the nearest name
+  within a third of its length in edits, a swapped pair counting as one.
+- `credless slot [letter]` shows the machine's slot and its source, or writes the slot file. A remote target refused
+  a first run with "no slot" and the only fix was a hand-made file. The config's `personas.slot` stays in the schema
+  but `run` does not read it, and the docs now say so: a letter in a committed file would be every machine's, which
+  is what slots exist to prevent. The skill and the concepts page said the default was `a`; that is true of local
+  targets only.
+- `report` alone, `report summary` and `report open` take the latest run; `report list` prints the kept runs, newest
+  first, with the verdict from each SUMMARY.md's first line. Outside a project (no config found and no `./reports`),
+  they read `./credless-demo/reports`, where `credless demo` from the package keeps its runs.
+- An unknown target says `unknown target "x": the config defines a, b` (it named `CREDLESS_TARGET`, which a person
+  passing `--target` never set). A missing key says what to do for the configured source (`runner/messages.ts`), the
+  same words from `run`, `health` and `seed`, and never asks for the key in a session.
+- doctor fails an origin under `.example` or `.invalid` as a placeholder from `init` and probes nothing; it used to
+  blame "network or VPN". With `--offline` the same words are a warning, like an unset slot: a first
+  `doctor --offline` after `init` checks the machine, and the origins are a choice `init` cannot make. The unit
+  helper's dev target moved to `.test` hosts for that reason.
+- `init` ends with the five steps to a first run (origins, the backend brief, `slot`, `doctor`, `run`) for the target
+  it wrote, naming `credless.config.mts` in a CommonJS project. `REPO_URL` joins the names in `brand.ts`.

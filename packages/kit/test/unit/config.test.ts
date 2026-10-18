@@ -128,7 +128,9 @@ describe('target URLs', () => {
     expect(() => assertTargetUrl('file:///etc/passwd', 'local', base)).toThrow(/http/);
     expect(() => assertTargetUrl('https://user:pw@dev.example.com', 'dev', base)).toThrow(/credentials/);
     expect(() => assertTargetUrl('not a url', 'dev', base)).toThrow(/not a URL/);
-    expect(() => assertTargetUrl('https://dev.example.com', 'nope', base)).toThrow(/must be one of dev, local/);
+    expect(() => assertTargetUrl('https://dev.example.com', 'nope', base)).toThrow(
+      /unknown target "nope": the config defines dev, local/,
+    );
   });
 });
 
@@ -166,7 +168,7 @@ describe('loadRunConfig', () => {
 
   test('refuses an unknown or missing target, a production override, a bad run id and a bad slot', () => {
     expect(() => loadRunConfig(env({ [ENV.TARGET]: 'prod' }), base)).toThrow(
-      new RegExp(`${ENV.TARGET} must be one of dev, local`),
+      /unknown target "prod": the config defines dev, local/,
     );
     expect(() => loadRunConfig({}, base)).toThrow(new RegExp(`${ENV.TARGET} is not set`));
     expect(() => loadRunConfig(env({ [ENV.API_URL]: 'https://prod-api.example.com' }), base)).toThrow(/production/);
