@@ -14,6 +14,7 @@ import { compare, DEFAULT_ANSWERS, type InitAnswers, scanDir, scanExitCode, scru
 import { doctor, isPlaceholderOrigin } from './doctor.ts';
 import { kitVersion } from './global-setup.ts';
 import { health, seed } from './health.ts';
+import { PNP_MESSAGE, underPnp } from './messages.ts';
 import { findConfigFile } from './project.ts';
 import { run } from './run.ts';
 import { badSlotMessage, resolveSlot, slotFilePath } from './slot.ts';
@@ -286,9 +287,14 @@ export interface MainIo {
   stderr?: NodeJS.WritableStream;
   env?: NodeJS.ProcessEnv;
   cwd?: string;
+  /** whether Yarn Plug'n'Play loaded this process (tests set it); default: `process.versions.pnp` */
+  pnp?: boolean;
 }
 
 const COMMON = ['config'] as const;
+
+/** The commands that start Playwright from the kit's files, refused under Yarn Plug'n'Play ({@link PNP_MESSAGE}). */
+const NEEDS_FILES_ON_DISK = new Set(['demo', 'run', 'seed', 'health']);
 
 /** Where a run's evidence is for a run id or a path, using the project's `evidence.reportsDir` when one is configured. */
 async function reportDirFor(idOrPath: string, cwd: string, configPath?: string): Promise<string> {
@@ -418,6 +424,10 @@ export async function main(argv: readonly string[] = process.argv.slice(2), io: 
     out.write(commandHelp(command));
     return EXIT.PASS;
   }
+  if (command && NEEDS_FILES_ON_DISK.has(command) && (io.pnp ?? underPnp())) {
+    say(PNP_MESSAGE);
+    return EXIT.USAGE;
+  }
 
   switch (command) {
     case undefined:
@@ -492,6 +502,7 @@ export async function main(argv: readonly string[] = process.argv.slice(2), io: 
         configPath: p.flags.config as string | undefined,
         cwd,
         env,
+        pnp: io.pnp,
       });
       out.write(`${report.lines.join('\n')}\n`);
       return report.failed > 0 ? EXIT.USAGE : EXIT.PASS;

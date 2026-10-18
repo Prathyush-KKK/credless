@@ -15,6 +15,7 @@ pnpm install --frozen-lockfile       # install scripts are off for every depende
 pnpm check                           # biome, typecheck, unit tests, contract, catalog, skill copy and shape, test-code gate, org gate, action tests
 pnpm test                            # check plus the self-tests through the runner (scrub, scan and leak check run too)
 pnpm verify                          # the release gate: test, the demo, the build, and the packed tarball installed into a blank project
+pnpm smoke:registry                  # before a release: publish to a throwaway local registry, install with npm, pnpm, yarn, bun, -g, npx, dlx
 ```
 
 Node 22.18 or later (every `.ts` is erasable, so Node runs the sources directly). The self-tests need Playwright's
@@ -87,7 +88,8 @@ credless is built and maintained by one independent developer, [@Prathyush-KKK](
 There is no company behind it and no paid tier. Decisions that change the contract, the config schema or the
 security model go through an `rfc` issue so they happen in public. A second maintainer is welcome once someone has
 landed a few changes; they will be listed in `MAINTAINERS.md` and added to `.github/CODEOWNERS`. Releases are cut
-locally with `pnpm release` (which runs `pnpm verify` first) and tagged `v<version>`; the plugin marketplace points
+locally with `pnpm release` (which runs `pnpm verify` first; `pnpm smoke:registry` beforehand, since it needs the
+network) and tagged `v<version>`; the plugin marketplace points
 at release tags, never at `main`.
 
 ## Code of conduct

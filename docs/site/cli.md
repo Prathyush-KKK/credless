@@ -27,7 +27,7 @@ Common option: `--config <file>` (default: the nearest `credless.config.ts` abov
 |---|---|
 | 0 | every test passed and the evidence is clean |
 | 1 | a test failed, or a secret value was found in the evidence (scrubbed, kept, and the run failed because a code path leaked) |
-| 2 | usage: unknown or production target, bad flag, missing tool, lock held past `--wait`, no key source, `doctor` refused |
+| 2 | usage: unknown or production target, bad flag, missing tool, lock held past `--wait`, no key source, Yarn Plug'n'Play, `doctor` refused |
 | 4 | the evidence is not safe to keep: post-run failed or something secret-shaped survived the scrub; the staging folder was deleted |
 
 The GitHub Action exits with the same code.

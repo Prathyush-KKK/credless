@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 // `pnpm smoke:pack`: the package as a real user gets it, checked before every release (no CI runs for this repo, so
-// this is the gate). It builds the kit, packs it with pnpm into a temp dir, installs the tarball and the pinned
+// this is the gate). It builds the kit, packs it with npm into a temp dir (`pnpm release` publishes with `npm publish`,
+// which packs the same way; pnpm would rewrite a workspace: or catalog: range that npm ships as written), installs
+// the tarball and the pinned
 // @playwright/test into a blank npm project, and drives the CLI through node_modules/.bin/credless, the symlink npm
 // makes and users hit: --help, version, init then doctor --offline, demo (PASS, contact sheet kept), demo
 // --plant-secret (the expected line), a real suite run inside the blank project itself (npm init -y makes it
@@ -11,20 +13,12 @@
 // No shell anywhere (argv arrays, npm and pnpm started as Node scripts where they can be found); every temp dir is
 // removed at the end, pass or fail, unless --keep. Exit 1 when a check fails. The demo's values are stand-ins; the
 // planted one is only ever compared, never printed.
-import { spawn, spawnSync } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { packageManager as tool } from './package-managers.mjs';
-
-const ROOT = fileURLToPath(new URL('..', import.meta.url));
-const KIT = path.join(ROOT, 'packages', 'kit');
-const pkg = JSON.parse(fs.readFileSync(path.join(KIT, 'package.json'), 'utf8'));
-const NAME = pkg.name;
-const VERSION = pkg.version;
-const PLAYWRIGHT = pkg.devDependencies['@playwright/test'];
-const PLANT_OK = `${NAME} demo --plant-secret: the planted value was found in the evidence and the run failed, as it should`;
+import { checklist, evidenceOf, exec, KIT, NAME, PLANT_OK, PLAYWRIGHT, ROOT, userEnv, VERSION } from './smoke-lib.mjs';
 
 const args = new Set(process.argv.slice(2));
 for (const arg of args) {
@@ -34,72 +28,7 @@ for (const arg of args) {
   }
 }
 
-/**
- * The environment of a user's terminal: this one without what `pnpm run` adds (npm_* settings, the workspace's
- * node_modules/.bin on PATH) and without any CREDLESS_* knob, plus a private staging dir for these runs.
- */
-function userEnv(stagingDir) {
-  const env = {};
-  for (const [name, value] of Object.entries(process.env)) {
-    if (value === undefined || /^(npm_|pnpm_|CREDLESS_)/i.test(name) || name === 'INIT_CWD') continue;
-    env[name] = value;
-  }
-  const pathKey = Object.keys(env).find((k) => k.toUpperCase() === 'PATH') ?? 'PATH';
-  env[pathKey] = (env[pathKey] ?? '')
-    .split(path.delimiter)
-    .filter((dir) => dir && !path.resolve(dir).startsWith(path.resolve(ROOT)))
-    .join(path.delimiter);
-  env.CREDLESS_STAGING_DIR = stagingDir;
-  return env;
-}
-
-function exec(command, argv, options) {
-  const [cmd, ...pre] = Array.isArray(command) ? command : [command];
-  const started = Date.now();
-  const r = spawnSync(cmd, [...pre, ...argv], {
-    cwd: options.cwd,
-    env: options.env,
-    encoding: 'utf8',
-    timeout: options.timeout ?? 300_000,
-    maxBuffer: 64 * 1024 * 1024,
-    windowsHide: true,
-  });
-  return {
-    status: r.status,
-    stdout: r.stdout ?? '',
-    stderr: r.stderr ?? '',
-    all: `${r.stdout ?? ''}${r.stderr ?? ''}${r.error ? `\n${r.error.message}` : ''}`,
-    seconds: (Date.now() - started) / 1000,
-  };
-}
-
-const results = [];
-let failed = 0;
-function check(label, ok, detail = '', seconds) {
-  const time = seconds === undefined ? '' : ` (${seconds.toFixed(1)} s)`;
-  results.push(`  ${ok ? 'ok  ' : 'FAIL'}  ${label}${time}`);
-  console.log(results.at(-1));
-  if (!ok) {
-    failed += 1;
-    if (detail)
-      console.log(
-        detail
-          .trimEnd()
-          .split('\n')
-          .slice(-40)
-          .map((l) => `        ${l}`)
-          .join('\n'),
-      );
-  }
-  return ok;
-}
-
-/** The last `summary: <path>` the run printed, and the contact sheets listed after it. */
-function evidenceOf(stdout) {
-  const summary = [...stdout.matchAll(/^\s*summary: (.+SUMMARY\.md)\s*$/gm)].at(-1)?.[1] ?? null;
-  const sheets = [...stdout.matchAll(/^\s+(\S.*contact-sheet-[^/\\]+\.png)\s*$/gm)].map((m) => m[1]);
-  return { summary, sheets };
-}
+const { check, finish } = checklist('smoke:pack');
 
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), `${NAME}-smoke-`));
 const packDir = path.join(tmp, 'pack');
@@ -108,13 +37,14 @@ const empty = path.join(tmp, 'empty');
 const staging = path.join(tmp, 'staging');
 for (const dir of [packDir, project, empty]) fs.mkdirSync(dir);
 const env = userEnv(staging);
-const started = Date.now();
 let npxCache = null;
 let npxBefore = new Set();
 
 console.log(`smoke:pack  ${NAME} ${VERSION}, @playwright/test ${PLAYWRIGHT}, node ${process.version}`);
+let code = 1;
 try {
   await run();
+  code = finish();
 } finally {
   if (npxCache) {
     // npx keeps one cache folder per package spec; this run's spec was a temp path, so its folder is never reused
@@ -125,14 +55,7 @@ try {
   if (args.has('--keep')) console.log(`  kept ${tmp}`);
   else fs.rmSync(tmp, { recursive: true, force: true });
 }
-const total = results.length;
-const seconds = ((Date.now() - started) / 1000).toFixed(0);
-console.log(
-  failed
-    ? `smoke:pack: ${failed} of ${total} checks failed (${seconds} s)`
-    : `smoke:pack: all ${total} checks passed (${seconds} s)`,
-);
-process.exit(failed ? 1 : 0);
+process.exit(code);
 
 async function run() {
   if (!args.has('--no-build')) {
@@ -140,9 +63,9 @@ async function run() {
     if (!check('build packages/kit (tsdown, then the demo)', r.status === 0, r.all, r.seconds)) return;
   }
 
-  const packed = exec(tool('pnpm'), ['pack', '--pack-destination', packDir], { cwd: KIT, env: process.env });
+  const packed = exec(tool('npm'), ['pack', '--pack-destination', packDir], { cwd: KIT, env });
   const tgz = fs.readdirSync(packDir).find((f) => f.endsWith('.tgz'));
-  if (!check(`pnpm pack: ${tgz ?? 'no tarball'}`, packed.status === 0 && Boolean(tgz), packed.all, packed.seconds)) {
+  if (!check(`npm pack: ${tgz ?? 'no tarball'}`, packed.status === 0 && Boolean(tgz), packed.all, packed.seconds)) {
     return;
   }
   const tarball = path.join(packDir, tgz);

@@ -25,3 +25,6 @@ First public release.
 - Agent surfaces: an Agent Skill, a Claude Code plugin and marketplace with a secret-blocking `PreToolUse` hook, a
   Cursor rule and an `AGENTS.md` snippet; a composite GitHub Action with a job summary and pull-request comment.
 - A bundled demo app ("documents for teams") that runs from the npm package with `npx credless demo`.
+- Installs: npm, pnpm, bun, Yarn classic and Yarn 4 with `nodeLinker: node-modules`, plus `npm i -g`, `npx`,
+  `pnpm dlx` and `bunx`, each checked against a local registry before release. Yarn Plug'n'Play is refused with the
+  fix rather than failing halfway.

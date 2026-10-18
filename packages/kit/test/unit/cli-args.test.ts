@@ -136,6 +136,25 @@ describe('main', () => {
     expect(topic.err()).toMatch(/no command "seeed"; did you mean "seed"\?/);
   });
 
+  it("under Yarn Plug'n'Play the commands that start Playwright refuse with the fix; the rest work", async () => {
+    for (const argv of [
+      ['demo'],
+      ['run', '--target', 'dev'],
+      ['seed', '--target', 'dev'],
+      ['health', '--target', 'dev'],
+    ]) {
+      const t = io();
+      expect(await main(argv, { ...t, pnp: true }), argv.join(' ')).toBe(EXIT.USAGE);
+      expect(t.err(), argv.join(' ')).toMatch(
+        /^credless: Yarn Plug'n'Play is not supported yet: .*nodeLinker: node-modules/,
+      );
+    }
+    const version = io();
+    expect(await main(['version'], { ...version, pnp: true })).toBe(EXIT.PASS);
+    const help = io();
+    expect(await main(['demo', '--help'], { ...help, pnp: true })).toBe(EXIT.PASS);
+  });
+
   it('report list, and report summary defaulting to the latest run', async () => {
     const p = makeProject();
     made.push(p);

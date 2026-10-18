@@ -76,6 +76,20 @@ name unless it measurably hurts.
 Node.js 22.18 or later (Node runs TypeScript configs natively from that version) and `@playwright/test` 1.64 or later.
 The self-tests run on Chromium; WebKit and Firefox projects are your choice in your Playwright config.
 
+### Which package managers work?
+
+npm, pnpm, bun, Yarn classic, and Yarn 4 with `nodeLinker: node-modules` in `.yarnrc.yml`; `npx`, `pnpm dlx`,
+`bunx` and a global `npm i -g` run the CLI too. Each of these installs the published package and passes
+`credless demo` before every release (`pnpm smoke:registry`). Yarn 4's default, Plug'n'Play, is not supported yet:
+credless starts Playwright from files on disk, which Plug'n'Play keeps in zip archives, so `demo`, `run`, `seed` and
+`health` stop with that fix instead of failing halfway.
+
+### Yarn 4 says every version of credless is quarantined
+
+Yarn 4 holds back a version for a few days after it is published (`npmMinimalAgeGate`), a defence against a
+compromised release. Waiting is the safe answer; to take a release on its first day, add
+`npmPreapprovedPackages: ["credless"]` to `.yarnrc.yml`.
+
 ### Does it need GitHub Actions?
 
 No. `npx credless run --target <t>` runs on any machine or CI that runs Node. The composite GitHub Action is a

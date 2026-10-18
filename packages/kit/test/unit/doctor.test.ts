@@ -119,6 +119,14 @@ describe('the probe without a key', () => {
     expect(offline.failed).toBe(0);
   });
 
+  it("names Yarn Plug'n'Play as a failure with the fix", async () => {
+    const p = project();
+    const pnp = await doctor({ ...base(p), offline: true, pnp: true });
+    expect(pnp.lines.join('\n')).toMatch(/FAIL\s+Yarn Plug'n'Play is not supported yet: .*nodeLinker: node-modules/);
+    const plain = await doctor({ ...base(p), offline: true, pnp: false });
+    expect(plain.lines.join('\n')).not.toMatch(/Plug'n'Play/);
+  });
+
   it('401 is the lock working, 404 is not deployed, unreachable fails', async () => {
     const p = project();
     const ok = await doctor({

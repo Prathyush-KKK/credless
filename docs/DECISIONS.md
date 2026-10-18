@@ -183,3 +183,27 @@ One line per proposal the v0.1 tasks raised against the frozen interfaces (`docs
   helper's dev target moved to `.test` hosts for that reason.
 - `init` ends with the five steps to a first run (origins, the backend brief, `slot`, `doctor`, `run`) for the target
   it wrote, naming `credless.config.mts` in a CommonJS project. `REPO_URL` joins the names in `brand.ts`.
+
+## Installs from a registry
+
+- `pnpm smoke:registry` (`scripts/smoke-registry.mjs`) is the release's install check against a registry, run by
+  hand before `pnpm release` because it needs the network (so not part of `pnpm verify`). It packs the kit with npm,
+  starts a pinned Verdaccio on loopback that serves this package only from itself (never proxied, so the tarball under
+  test is what installs even once a version is on npm) and everything else from npmjs, publishes the tarball with a
+  throwaway user, and runs `credless demo` after `npm i -D`, `pnpm add -D`, `yarn add -D` (1.x, and Yarn 4 with
+  `nodeLinker: node-modules`), `bun add -d`, `npm i -g`, `npx`, `pnpm dlx` and `bunx`. Every tool gets a temp user
+  config and cache naming only the loopback registry; bunx reads no `.npmrc` outside a project and corepack fetches
+  Yarn from repo.yarnpkg.com unless `COREPACK_NPM_REGISTRY` is set, so both get the registry by environment. Verdaccio
+  is run with `npx` rather than added to devDependencies (some 300 packages for one script).
+- smoke:pack now packs with `npm pack`, the packer `npm publish` in `pnpm release` uses. The two produced the same 62
+  files and manifest, but pnpm rewrites a `workspace:` or `catalog:` range that npm publishes as written, so a test of
+  pnpm's tarball would pass while the published one failed to install. The helpers both smoke scripts use are in
+  `scripts/smoke-lib.mjs`.
+- Yarn Plug'n'Play is refused in 0.x: `demo`, `run`, `seed` and `health` exit 2 with the fix (`nodeLinker:
+  node-modules`), and doctor fails on it. Under Plug'n'Play the package is a zip only Yarn's patched `fs` can read;
+  `demo` copies its project with the native `fs.cpSync` and links the package root into a temp dir, and failed on a
+  path inside the zip. `run` was not shown to work either way. `version`, `help`, `init`, `doctor` and `slot` work and
+  stay allowed. Supporting it would mean unplugging the kit or reading every file through Yarn's API; not chosen for
+  0.x.
+- Yarn 4 quarantines a version for days after publish (`npmMinimalAgeGate`); the smoke pre-approves the package
+  (`npmPreapprovedPackages`), and the FAQ tells Yarn users the same for a first-day install.

@@ -108,7 +108,7 @@ if (interactive(npm, ['pack', '--dry-run'], KIT) !== 0) fail('npm pack --dry-run
 // 5. the publish, only when asked for
 if (!yes) {
   console.log(
-    `\nrelease: dry run, nothing published. \`pnpm release --yes\` runs, in packages/kit:\n  npm ${PUBLISH.join(' ')}\nand then tags ${tag} here.`,
+    `\nrelease: dry run, nothing published. \`pnpm release --yes\` runs, in packages/kit:\n  npm ${PUBLISH.join(' ')}\nand then tags ${tag} here. Run \`pnpm smoke:registry\` first if you have not (npm, pnpm, yarn, bun, -g, npx and\ndlx installs from a local registry; it needs the network, so verify does not run it).`,
   );
   process.exit(0);
 }

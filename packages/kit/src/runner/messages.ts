@@ -13,6 +13,18 @@ const KEY_HELP: Record<KeySourceRef['source'], string> = {
 };
 
 /**
+ * Yarn Plug'n'Play keeps packages in zip archives that only its patched `fs` can read. The runner copies the demo with
+ * a native copy, links the kit's package root into a temp project and starts Playwright from files on disk, so under
+ * Plug'n'Play `demo` fails on a path inside a zip and `run` was never shown to work: they refuse with the fix instead.
+ */
+export const PNP_MESSAGE = `Yarn Plug'n'Play is not supported yet: ${CLI_NAME} starts Playwright from files on disk, which Plug'n'Play keeps in zip archives. Add \`nodeLinker: node-modules\` to .yarnrc.yml and run \`yarn install\`, or install with npm, pnpm or bun`;
+
+/** Whether Yarn Plug'n'Play loaded this process (`process.versions.pnp` is its marker). */
+export function underPnp(): boolean {
+  return Boolean((process.versions as Record<string, string | undefined>).pnp);
+}
+
+/**
  * The runner key could not be read. `reason` is the key source's own message (`no runner key: ... is not set`), which
  * names the variable, the file or the command and never the value.
  */

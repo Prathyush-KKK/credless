@@ -71,8 +71,9 @@ npx credless demo --plant-secret
 It plants the demo's stand-in password in the test output on purpose. The scrub redacts it, the scan finds it,
 `SUMMARY.md` says `LEAK`, the run fails, and the command tells you the protection worked.
 
-Requirements: Node.js 22.18 or later, `@playwright/test` 1.64 or later. Nothing in credless needs an install script,
-so `npm ci --ignore-scripts` works.
+Requirements: Node.js 22.18 or later, `@playwright/test` 1.64 or later. Installs with npm, pnpm, Yarn (classic, or
+Yarn 4 with `nodeLinker: node-modules`; Plug'n'Play is not supported yet) and bun. Nothing in credless needs an
+install script, so `npm ci --ignore-scripts` works.
 
 ## What a test looks like
 

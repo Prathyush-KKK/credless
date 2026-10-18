@@ -58,6 +58,7 @@
     "test:action": "node --test action/summary.test.mjs",
     "pack:check": "pnpm --filter ./packages/kit build && pnpm --filter ./packages/kit pack:check",
     "smoke:pack": "node scripts/smoke-pack.mjs",
+    "smoke:registry": "node scripts/smoke-registry.mjs",
     "verify": "pnpm check && pnpm selftest && pnpm demo && pnpm build && pnpm smoke:pack",
     "release": "node scripts/release.mjs"
   },

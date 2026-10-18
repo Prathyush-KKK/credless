@@ -55,7 +55,8 @@ test('an outsider never sees the team document', async ({ personas, control }) =
 
 ## Requirements and exports
 
-Node.js 22.18 or later; peer `@playwright/test` 1.64 or later; no install scripts (`--ignore-scripts` works).
+Node.js 22.18 or later; peer `@playwright/test` 1.64 or later; no install scripts (`--ignore-scripts` works). npm,
+pnpm, Yarn (classic, or Yarn 4 with `nodeLinker: node-modules`; not Plug'n'Play yet) and bun.
 
 | Import | What it gives you |
 |---|---|

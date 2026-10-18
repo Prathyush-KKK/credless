@@ -11,6 +11,7 @@ import { DEFAULTS, ENV, type ExecPreset, type RunConfig, type RunMode } from '..
 import { chromiumInstallCommand, missingBrowsers } from './browsers.ts';
 import { createKeySource, loadProjectConfig } from './deps.ts';
 import { dockerAvailable, dockerOnPath, imageFor, imagePulled, insideContainer, playwrightVersion } from './docker.ts';
+import { PNP_MESSAGE, underPnp } from './messages.ts';
 import { findConfigFile } from './project.ts';
 import { checkSlot, resolveSlot, SlotError } from './slot.ts';
 import { isPrivateDir, stagingDirPath } from './staging.ts';
@@ -37,6 +38,8 @@ export interface DoctorInput {
   cwd?: string;
   env?: NodeJS.ProcessEnv;
   platform?: NodeJS.Platform;
+  /** injectable for tests: whether Yarn Plug'n'Play loaded this process */
+  pnp?: boolean;
   /** injectable for tests: the probe without a key */
   probe?: (url: string) => Promise<{ status: number; body: string } | null>;
 }
@@ -187,6 +190,7 @@ export async function doctor(input: DoctorInput = {}): Promise<DoctorReport> {
     fail(`node ${process.versions.node}: ${NODE_FLOOR.join('.')} or later is needed (it strips types from .ts files)`);
   if (onPath('git', env, platform)) ok('git');
   else warn('git is missing (run.json then carries no commit)');
+  if (input.pnp ?? underPnp()) fail(PNP_MESSAGE);
 
   // --- where runs execute
   let mode: RunMode;
