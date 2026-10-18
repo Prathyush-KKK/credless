@@ -105,6 +105,8 @@ describe('writeTemplates', () => {
 
   beforeEach(() => {
     dir = mkdtempSync(path.join(tmpdir(), 'credless-init-'));
+    // An ES module project: the templates keep their `.ts` names (the CommonJS case has its own tests below).
+    writeFileSync(path.join(dir, 'package.json'), '{ "type": "module" }\n');
   });
 
   afterEach(() => {
@@ -174,5 +176,31 @@ describe('writeTemplates', () => {
     expect(snippet.permissions.deny).toContain('Read(~/.cache/credless/**)');
     expect(snippet.permissions.deny).toContain('Bash(printenv:*)');
     expect(snippet.permissions.deny.every((rule) => /^(Read|Bash)\(/.test(rule))).toBe(true);
+  });
+
+  it('writes .mts in a CommonJS project, names them so in the text files, and the config still evaluates', async () => {
+    writeFileSync(path.join(dir, 'package.json'), '{ "name": "app" }\n');
+    const result = await writeTemplates(dir);
+    expect(result.moduleType).toBe('commonjs');
+    expect(result.written).toEqual(
+      expect.arrayContaining([`${CLI_NAME}.config.mts`, 'playwright.config.mts', 'e2e/example.spec.mts']),
+    );
+    expect(result.written.some((file) => file.endsWith('.ts'))).toBe(false);
+    expect(readFileSync(path.join(dir, 'AGENTS.md'), 'utf8')).toContain(`${CLI_NAME}.config.mts`);
+    expect(readFileSync(path.join(dir, '.cursor/rules/e2e-testing.mdc'), 'utf8')).toContain(`${CLI_NAME}.config.mts`);
+    const mts = readFileSync(path.join(dir, `${CLI_NAME}.config.mts`), 'utf8');
+    writeFileSync(path.join(dir, configFile), mts); // evaluateConfig reads the .ts name; the content is the same
+    expect(evaluateConfig(dir).targets.staging).toEqual({ web: DEFAULT_ANSWERS.web, api: DEFAULT_ANSWERS.api });
+  });
+
+  it('treats a directory with no package.json above it as CommonJS, and never writes a second config', async () => {
+    rmSync(path.join(dir, 'package.json'));
+    writeFileSync(path.join(dir, configFile), '// the project already has a config\n');
+    const result = await writeTemplates(dir);
+    // tmpdir() has no package.json above it on the machines this runs on; if one exists, the type it declares decides
+    if (result.moduleType === 'commonjs') {
+      expect(result.skipped).toContain(configFile);
+      expect(existsSync(path.join(dir, `${CLI_NAME}.config.mts`))).toBe(false);
+    }
   });
 });

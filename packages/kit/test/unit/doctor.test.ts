@@ -46,11 +46,15 @@ describe('Q03 through the CLI', () => {
       expect(calls, 'no key source was run').not.toMatch(/^(op|infisical|kubectl)/m);
       expect(fs.existsSync(path.join(p.home, '.cache')), 'doctor changes nothing on disk').toBe(false);
       expect(fs.existsSync(p.stagingDir)).toBe(false);
-      // Without a slot against dev it says so, and still goes on to the other checks instead of stopping.
+      // Without a slot against dev it says so as a warning (a setup step `run` enforces) and goes on to the other
+      // checks; a malformed letter is a failure.
       const noSlot = cli(p, ['doctor', '--target', 'dev', '--offline'], env);
-      expect(noSlot.status).toBe(2);
-      expect(noSlot.stdout).toMatch(/FAIL\s+no slot for dev/);
+      expect(noSlot.stdout).toMatch(/warn\s+no slot for dev: .*\(`run` refuses until then\)/);
+      expect(noSlot.stdout).not.toMatch(/FAIL\s+no slot/);
       expect(noSlot.stdout).toContain('Key source');
+      const badSlot = cli(p, ['doctor', '--target', 'dev', '--offline', '--slot', 'AB'], env);
+      expect(badSlot.status).toBe(2);
+      expect(badSlot.stdout).toMatch(/FAIL\s+the slot must be one lowercase letter/);
     },
     120_000,
   );

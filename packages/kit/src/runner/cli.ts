@@ -116,7 +116,7 @@ export const USAGE = `${CLI_NAME}: signed-in, multi-user Playwright E2E where th
 
 Usage: ${CLI_NAME} <command> [options]
 
-  init [dir] [--yes]                      write ${KIT_NAME}.config.ts, personas.yaml, e2e/example.spec.ts and the agent files
+  init [dir] [--yes]                      write ${KIT_NAME}.config.ts (.mts in a CommonJS project), personas.yaml, an example spec and the agent files
   doctor [--target t] [--offline] [--security] [--slot x] [--docker|--native]
                                           is this machine ready: tools, browsers, slot, staging, key source by presence,
                                           the target probed without a key. Reads no secret. --security lists the layers
@@ -128,8 +128,10 @@ Usage: ${CLI_NAME} <command> [options]
   evidence scrub|scan <dir> [--values-file f]
                                           the evidence pipeline by hand
   check-tests [dir...] [--engine ts|regex] the test-code gate: no browsers, network, process or fs in test dirs
-  demo [--headed] [--demo-dir d] [--target t]
-                                          start the demo app and run the quickstart suite against it
+  demo [--headed] [--plant-secret] [--reports-dir d] [--demo-dir d] [--target t]
+                                          start the demo app and run the quickstart suite against it; evidence in
+                                          ./${KIT_NAME}-demo/reports. --plant-secret writes the demo's stand-in password
+                                          into the test output on purpose and passes only when the run fails with a LEAK
   version, help
 
 Common options: --config <file> (default: the nearest ${KIT_NAME}.config.ts above the working directory)
@@ -184,7 +186,7 @@ const INIT_NEXT = `
 Next:
   - if you use Claude Code, merge .claude/${KIT_NAME}-settings.snippet.json into .claude/settings.json (the deny rules
     are a backstop, not a boundary)
-  - in .github/workflows/e2e.yml, pin owner/${KIT_NAME}/action@v0 to a release tag or a commit SHA
+  - .github/workflows/e2e.yml uses the action at a release tag; pin a commit SHA if your policy requires it
   - ${CLI_NAME} doctor --offline checks the result
 `;
 
@@ -252,6 +254,11 @@ export async function main(argv: readonly string[] = process.argv.slice(2), io: 
         for (const file of result.written) out.write(`  wrote ${file}\n`);
         for (const file of result.appended) out.write(`  appended ${file}\n`);
         for (const file of result.skipped) out.write(`  kept ${file} (already there)\n`);
+        if (result.moduleType === 'commonjs') {
+          out.write(
+            '  (TypeScript files are .mts: this package.json is not "type": "module", and .mts runs as an ES module either way)\n',
+          );
+        }
         out.write(INIT_NEXT);
         return EXIT.PASS;
       } catch (error) {
@@ -421,10 +428,15 @@ export async function main(argv: readonly string[] = process.argv.slice(2), io: 
     }
 
     case 'demo': {
-      const p = parseArgs(rest, { booleans: ['headed'], strings: ['demo-dir', 'target'] });
+      const p = parseArgs(rest, {
+        booleans: ['headed', 'plant-secret'],
+        strings: ['demo-dir', 'target', 'reports-dir'],
+      });
       if (isError(p)) return usage(p.error);
       return demo({
         headed: Boolean(p.flags.headed),
+        plantSecret: Boolean(p.flags['plant-secret']),
+        reportsDir: p.flags['reports-dir'] as string | undefined,
         demoDir: p.flags['demo-dir'] as string | undefined,
         target: p.flags.target as string | undefined,
         ...common,

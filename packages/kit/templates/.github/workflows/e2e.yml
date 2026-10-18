@@ -1,6 +1,6 @@
 # End-to-end tests through credless, written by `credless init`. The runner key is an environment secret passed to
 # the one `run` step; the CLI takes it over and unsets it before any test runs. Pin the action to a release tag or a
-# commit SHA; `owner/credless/action@v0` below is a placeholder.
+# commit SHA; the tag below is the first release.
 name: e2e
 
 on:
@@ -29,7 +29,7 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v5
-      - uses: owner/credless/action@v0 # placeholder: pin to a tag (vX.Y.Z) or a commit SHA
+      - uses: Prathyush-KKK/credless/action@v0.1.0 # a release tag, or pin a commit SHA
         with:
           target: staging
           key: ${{ secrets.CREDLESS_RUNNER_KEY }}

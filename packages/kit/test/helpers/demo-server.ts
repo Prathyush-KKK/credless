@@ -8,6 +8,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { ENV } from '../../src/types.ts';
 
 /** The one line the server prints once everything listens (apps/demo/src/server.ts). */
@@ -49,6 +50,32 @@ export function demoWebServer(options: DemoWebServerOptions): DemoWebServer {
     reuseExistingServer: false,
     stdout: 'ignore',
     stderr: 'pipe',
+  };
+}
+
+export interface StandaloneDemo {
+  webServer?: DemoWebServer;
+  globalTeardown?: string;
+}
+
+/**
+ * What the demo suite's Playwright config adds when nothing started the demo for it (no DEMO_WEB): a bare
+ * `npx playwright test` in apps/demo/e2e, or the dogfood `credless run --target demo`. The demo as the webServer, this
+ * module as the teardown that removes its key file, and the demo's stand-in sign-in password for the one sign-in test
+ * (a real run gets it from the CLI's 0600 handover file). Empty under `credless demo`, which starts the demo itself.
+ * `src` is the demo's src/ directory (server.ts, fake-secrets.json).
+ */
+export function standaloneDemo(options: { runId: string; src: string }): StandaloneDemo {
+  if (process.env.DEMO_WEB) return {};
+  if (!process.env[ENV.SIGNIN_PASSWORD_FILE]) {
+    const fake = JSON.parse(fs.readFileSync(path.join(options.src, 'fake-secrets.json'), 'utf8')) as {
+      signinPassword: string;
+    };
+    process.env[ENV.SIGNIN_PASSWORD] ??= fake.signinPassword;
+  }
+  return {
+    webServer: demoWebServer({ runId: options.runId, server: path.join(options.src, 'server.ts') }),
+    globalTeardown: fileURLToPath(import.meta.url),
   };
 }
 

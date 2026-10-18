@@ -141,6 +141,23 @@ export function makeProject(options: TempProjectOptions = {}): TempProject {
   };
 }
 
+/**
+ * Where this machine keeps Playwright's browsers, for a child run that launches one under the temp HOME (which would
+ * otherwise hide Playwright's default cache): the variable when set, else that default for the real home.
+ */
+export function browsersEnv(): Record<string, string> {
+  const set = process.env.PLAYWRIGHT_BROWSERS_PATH;
+  if (set) return { PLAYWRIGHT_BROWSERS_PATH: set };
+  const home = os.homedir();
+  const where =
+    process.platform === 'win32'
+      ? path.join(process.env.LOCALAPPDATA ?? path.join(home, 'AppData', 'Local'), 'ms-playwright')
+      : process.platform === 'darwin'
+        ? path.join(home, 'Library', 'Caches', 'ms-playwright')
+        : path.join(process.env.XDG_CACHE_HOME ?? path.join(home, '.cache'), 'ms-playwright');
+  return { PLAYWRIGHT_BROWSERS_PATH: where };
+}
+
 export interface CliResult {
   status: number | null;
   stdout: string;

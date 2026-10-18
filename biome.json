@@ -13,6 +13,8 @@
       "!**/reports",
       "!**/.staging",
       "!**/test-results",
+      "!packages/kit/demo",
+      "!packages/kit/contract",
       "!pnpm-lock.yaml"
     ]
   },

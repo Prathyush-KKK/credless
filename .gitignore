@@ -1,5 +1,8 @@
 node_modules/
 dist/
+# the demo's e2e project as the package ships it, written by packages/kit/scripts/build-demo.ts from apps/demo
+packages/kit/demo/
+packages/kit/contract/
 reports/
 .staging/
 .release/

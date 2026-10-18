@@ -41,7 +41,10 @@ npx credless init
 
 `init` writes `credless.config.ts`, `personas.yaml`, `e2e/example.spec.ts`, a 25-line `AGENTS.md` snippet, a Cursor
 rule (`.cursor/rules/e2e-testing.mdc`), a GitHub workflow (`.github/workflows/e2e.yml`) and a suggested
-`.claude/settings.json` deny block. Nothing it writes contains a secret.
+`.claude/settings.json` deny block. Nothing it writes contains a secret. In a CommonJS project (a package.json
+without `"type": "module"`, which is what `npm init -y` makes) the TypeScript files are written as `.mts`
+(`credless.config.mts`, `playwright.config.mts`, `e2e/example.spec.mts`): Node and Playwright run `.mts` as an ES
+module either way, while a `.ts` there would be compiled as CommonJS and fail.
 
 ### 2. Adapt the config
 

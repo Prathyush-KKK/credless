@@ -43,12 +43,17 @@ function git(cwd: string, args: string[]): string | null {
   }
 }
 
-/** The kit's own version, from its package.json beside the source tree or the bundle. */
+/**
+ * The kit's own version, from its package.json above the source tree (`src/runner/`) or the bundle (`dist/`). The
+ * name is checked: two levels above `dist/` is the installing project's `node_modules`, whose package.json, if one
+ * is ever there, is not ours.
+ */
 export function kitVersion(): string {
   const require = createRequire(import.meta.url);
   for (const rel of ['../../package.json', '../package.json']) {
     try {
-      return (require(rel) as { version?: string }).version ?? '0.0.0';
+      const pkg = require(rel) as { name?: string; version?: string };
+      if (pkg.name === KIT_NAME) return pkg.version ?? '0.0.0';
     } catch {
       // next
     }

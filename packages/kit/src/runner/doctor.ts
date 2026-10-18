@@ -8,6 +8,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { CLI_NAME, KIT_NAME } from '../brand.ts';
 import { DEFAULTS, ENV, type ExecPreset, type RunConfig, type RunMode } from '../types.ts';
+import { chromiumInstallCommand, missingBrowsers } from './browsers.ts';
 import { createKeySource, loadProjectConfig } from './deps.ts';
 import { dockerAvailable, dockerOnPath, imageFor, imagePulled, insideContainer, playwrightVersion } from './docker.ts';
 import { findConfigFile } from './project.ts';
@@ -34,8 +35,10 @@ export interface DoctorReport {
   warned: number;
 }
 
-/** The earliest Node the published package declares, and the floor the workspace itself runs on. */
-export const NODE_DECLARED = [24, 12] as const;
+/**
+ * The earliest Node the package declares (`engines`) and runs on: 22.18 strips TypeScript types by default, which the
+ * CLI needs to import a project's `<kit>.config.ts` with plain Node.
+ */
 export const NODE_FLOOR = [22, 18] as const;
 
 /** Names on PATH of the exec presets, for presence checks only. */
@@ -167,12 +170,9 @@ export async function doctor(input: DoctorInput = {}): Promise<DoctorReport> {
   // --- tools
   section('Tools');
   const node = nodeVersion();
-  if (atLeast(node, NODE_DECLARED)) ok(`node ${process.versions.node}`);
-  else if (atLeast(node, NODE_FLOOR))
-    warn(
-      `node ${process.versions.node} (the package declares ${NODE_DECLARED.join('.')} or later; ${NODE_FLOOR.join('.')}+ works)`,
-    );
-  else fail(`node ${process.versions.node}: ${NODE_FLOOR.join('.')} or later is needed`);
+  if (atLeast(node, NODE_FLOOR)) ok(`node ${process.versions.node}`);
+  else
+    fail(`node ${process.versions.node}: ${NODE_FLOOR.join('.')} or later is needed (it strips types from .ts files)`);
   if (onPath('git', env, platform)) ok('git');
   else warn('git is missing (run.json then carries no commit)');
 
@@ -201,30 +201,15 @@ export async function doctor(input: DoctorInput = {}): Promise<DoctorReport> {
     if (!pwVersion) fail(`@playwright/test is not installed in ${projectRoot} (npm i -D @playwright/test)`);
     else {
       ok(`@playwright/test ${pwVersion}`);
-      try {
-        const require = createRequire(path.join(projectRoot, 'package.json'));
-        type Browsers = Record<'chromium' | 'firefox' | 'webkit', { executablePath(): string }>;
-        // A CommonJS module: its exports sit on `default` when the lexer cannot name them.
-        const mod = (await import(pathToFileURL(require.resolve('@playwright/test')).href)) as Browsers & {
-          default?: Browsers;
-        };
-        const pw = mod.default?.chromium ? mod.default : mod;
-        const missing = (['chromium', 'firefox', 'webkit'] as const).filter((b) => {
-          try {
-            return !fs.existsSync(pw[b].executablePath());
-          } catch {
-            return true;
-          }
-        });
-        if (missing.length === 0) ok('browsers: chromium, firefox and webkit');
-        else if (!missing.includes('chromium'))
-          ok(
-            `browsers: chromium (${missing.join(' and ')} not installed; npx playwright install ${missing.join(' ')} when a project needs them)`,
-          );
-        else fail(`browsers missing: ${missing.join(' ')} (npx playwright install chromium; on Linux add --with-deps)`);
-      } catch {
-        warn('browsers: could not be checked (@playwright/test did not load)');
-      }
+      const missing = await missingBrowsers(projectRoot, ['chromium', 'firefox', 'webkit']);
+      if (missing === null) warn('browsers: could not be checked (@playwright/test did not load)');
+      else if (missing.length === 0) ok('browsers: chromium, firefox and webkit');
+      else if (!missing.includes('chromium'))
+        ok(
+          `browsers: chromium (${missing.join(' and ')} not installed; npx playwright install ${missing.join(' ')} when a project needs them)`,
+        );
+      else
+        fail(`browsers missing: ${missing.join(' ')} (${chromiumInstallCommand(pwVersion)}; on Linux add --with-deps)`);
     }
   }
 
@@ -239,8 +224,11 @@ export async function doctor(input: DoctorInput = {}): Promise<DoctorReport> {
       if (slot === 'z' && !env.CI) warn('slot z is the one CI uses by convention; use your own letter');
     }
   } catch (error) {
-    if (error instanceof SlotError) fail(error.message);
-    else throw error;
+    if (!(error instanceof SlotError)) throw error;
+    // Not chosen yet is a setup step, not a fault (`init` cannot pick a machine's letter): a warning, while `run`
+    // refuses with the same words until one is set. A letter that is set but malformed fails.
+    if (resolution.slot === null) warn(`${error.message} (\`run\` refuses until then)`);
+    else fail(error.message);
   }
 
   // --- evidence

@@ -6,6 +6,7 @@
   "include": [
     "src/**/*.ts",
     "test/**/*.ts",
+    "scripts/**/*.ts",
     "credless.config.ts",
     "playwright.config.ts",
     "tsdown.config.ts",

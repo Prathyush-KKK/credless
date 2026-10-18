@@ -64,6 +64,11 @@ export interface RunInput extends Omit<RunOptions, 'mode'> {
   stderr?: NodeJS.WritableStream;
   /** more name=value pairs for the run's processes (the demo command's origins) */
   extraEnv?: Record<string, string>;
+  /**
+   * Where kept evidence goes instead of the config's `evidence.reportsDir` (resolved against `cwd`): the demo run from
+   * the installed package keeps it under the person's working directory, not in the temp copy of its project.
+   */
+  reportsRoot?: string;
   /** told where the evidence went when it was kept */
   onResult?: (result: RunResult) => void;
 }
@@ -195,7 +200,9 @@ export async function run(input: RunInput): Promise<ExitCode> {
     delete env[ENV.RUNNER_KEY];
     const redact = [key?.reveal(), password].filter((v): v is string => Boolean(v));
 
-    const reportsRoot = path.resolve(project.root, config.kit.evidence?.reportsDir ?? DEFAULTS.reportsDir);
+    const reportsRoot = input.reportsRoot
+      ? path.resolve(cwd, input.reportsRoot)
+      : path.resolve(project.root, config.kit.evidence?.reportsDir ?? DEFAULTS.reportsDir);
     fs.mkdirSync(reportsRoot, { recursive: true });
     // Keys the HMAC list of codes the scrubber removes; held by this process, never written.
     const evidenceKey = crypto.randomBytes(32).toString('hex');

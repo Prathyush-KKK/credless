@@ -216,7 +216,7 @@ password) live in `apps/demo/src/fake-secrets.json` and are scanned for like rea
 Tasks never edit a `package.json`. Everything the eight tasks need is declared: runtime `zod`, `yaml`, `fflate`,
 `@axe-core/playwright`; peer `@playwright/test >=1.64 <2` (dev-pinned 1.64.1); optional `@napi-rs/keyring`,
 `playwright-ctrf-json-reporter`; dev `vitest`, `tsdown`, `typescript 5.9`, `@types/node 24`, `@biomejs/biome`,
-`publint`, `@arethetypeswrong/cli`, `@changesets/cli`; `apps/demo` declares `vitest` for its own server test. A new
+`publint`, `@arethetypeswrong/cli`; `apps/demo` declares `vitest` for its own server test. A new
 dependency is a line in `docs/DECISIONS.md` with the reason, never a silent addition. Install scripts are off (`.npmrc`, `pnpm-workspace.yaml`); a package that needs one
 is a decision, not a line.
 

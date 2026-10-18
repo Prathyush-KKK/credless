@@ -2,8 +2,37 @@
   "name": "kit-workspace",
   "version": "0.0.0",
   "private": true,
-  "description": "Workspace for the kit: a Playwright layer for signed-in, multi-user end-to-end tests where the long-lived credential never reaches the agent, the test code, the browser or the evidence.",
+  "description": "Workspace of credless: signed-in, multi-user Playwright end-to-end tests that AI coding agents (Claude Code, Cursor, Codex) can run without your credentials: personas, a key broker, an egress guard and leak-proof evidence.",
+  "keywords": [
+    "playwright",
+    "e2e",
+    "end-to-end-testing",
+    "test-automation",
+    "authentication-testing",
+    "multi-user",
+    "test-accounts",
+    "personas",
+    "ai-agents",
+    "coding-agents",
+    "claude-code",
+    "cursor",
+    "codex",
+    "agent-skills",
+    "secrets",
+    "secret-scanning",
+    "egress-proxy",
+    "devsecops",
+    "qa",
+    "typescript"
+  ],
+  "homepage": "https://github.com/Prathyush-KKK/credless#readme",
+  "bugs": "https://github.com/Prathyush-KKK/credless/issues",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Prathyush-KKK/credless.git"
+  },
   "license": "Apache-2.0",
+  "author": "Prathyush K (https://github.com/Prathyush-KKK)",
   "type": "module",
   "packageManager": "pnpm@12.14.0",
   "engines": {
@@ -28,12 +57,13 @@
     "org-gate": "node scripts/org-gate.mjs",
     "test:action": "node --test action/summary.test.mjs",
     "pack:check": "pnpm --filter ./packages/kit build && pnpm --filter ./packages/kit pack:check",
-    "release": "changeset publish"
+    "smoke:pack": "node scripts/smoke-pack.mjs",
+    "verify": "pnpm check && pnpm selftest && pnpm demo && pnpm build && pnpm smoke:pack",
+    "release": "node scripts/release.mjs"
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "0.18.5",
     "@biomejs/biome": "2.5.15",
-    "@changesets/cli": "3.0.3",
     "@types/node": "24.19.2",
     "publint": "0.3.25",
     "typescript": "5.9.3"

@@ -49,7 +49,7 @@ inputs:
     required: false
     default: ''
   node-version:
-    description: Node version for actions/setup-node; the published package needs 24.12 or later.
+    description: Node version for actions/setup-node; the published package needs 22.18 or later.
     required: false
     default: '24'
   config:

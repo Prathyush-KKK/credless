@@ -35,7 +35,7 @@ body:
     attributes:
       label: Versions
       description: credless, @playwright/test, Node, OS (and the Playwright image tag if you ran in docker mode)
-      placeholder: credless 0.1.0, @playwright/test 1.64.1, Node 24.12.0, Ubuntu 24.04
+      placeholder: credless 0.1.0, @playwright/test 1.64.1, Node 22.18.0, Ubuntu 24.04
     validations:
       required: true
   - type: dropdown

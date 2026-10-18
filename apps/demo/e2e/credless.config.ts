@@ -3,8 +3,11 @@
 // hand with `--web-port 4310 --api-port 4311`. The runner key is a stand-in the demo writes to the file named by
 // CREDLESS_DEMO_KEY_FILE; without that variable the `env` key source applies (CREDLESS_RUNNER_KEY), so a person can
 // point the suite at a demo running with the key from apps/demo/src/fake-secrets.json.
+// workspace-only:start
 // The CLI imports this file with plain Node before any build (`credless demo` picks the target from it), so the
-// kit's source is named by path; a project that installs the package writes `from 'credless/config'`.
+// kit's source is named by path; a project that installs the package writes `from 'credless/config'`, and the
+// package's copy of this file (scripts/build-demo.ts) does.
+// workspace-only:end
 import { defineConfig } from '../../../packages/kit/src/config/index.ts';
 
 const env = process.env;

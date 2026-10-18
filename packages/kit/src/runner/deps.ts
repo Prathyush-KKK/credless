@@ -20,7 +20,7 @@ export { postRunMain, Redactor } from '../evidence/index.ts';
 export { compare } from '../evidence/report.ts';
 export { scanDir, scanExitCode } from '../evidence/scan.ts';
 export { scrubDir } from '../evidence/scrub.ts';
-export { DEFAULT_ANSWERS, type InitAnswers, writeTemplates } from '../templates/index.ts';
+export { DEFAULT_ANSWERS, type InitAnswers, packageRoot, writeTemplates } from '../templates/index.ts';
 
 export interface LoadProjectConfigOptions {
   /** an explicit config file (`--config`); otherwise the nearest `<kit>.config.*` above `cwd` */

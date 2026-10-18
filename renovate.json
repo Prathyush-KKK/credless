@@ -37,16 +37,8 @@
       "groupName": "playwright"
     },
     {
-      "description": "Toolchain: biome, typescript, tsdown, vitest, publint, attw, changesets",
-      "matchPackageNames": [
-        "@biomejs/biome",
-        "typescript",
-        "tsdown",
-        "vitest",
-        "publint",
-        "@arethetypeswrong/cli",
-        "@changesets/cli"
-      ],
+      "description": "Toolchain: biome, typescript, tsdown, vitest, publint, attw",
+      "matchPackageNames": ["@biomejs/biome", "typescript", "tsdown", "vitest", "publint", "@arethetypeswrong/cli"],
       "groupName": "toolchain"
     },
     {

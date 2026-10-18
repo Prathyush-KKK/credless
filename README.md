@@ -180,6 +180,9 @@ npx credless run --target staging --twice   # twice, with a flake report instead
 4. **Run in CI** with the [GitHub Action](action/README.md) or any CI that runs Node: the key comes from a protected
    secret, the evidence is an artifact, and the verdict is one pull-request comment.
 
+ES module and CommonJS projects both work: in a project without `"type": "module"`, `init` writes the TypeScript
+files as `.mts` so Node and Playwright load them as ES modules.
+
 ## How it compares
 
 Cells say yes, partial or no; every partial has a footnote. The facts come from

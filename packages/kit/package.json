@@ -1,24 +1,44 @@
 {
   "name": "credless",
   "version": "0.1.0",
-  "description": "A Playwright layer for signed-in, multi-user end-to-end tests against dev or staging: synthetic personas minted server-side, a brokered test-API key that never reaches the test code or the browser, an egress proxy that refuses production below Playwright routing, and evidence that fails the run if a secret value survives.",
+  "description": "Signed-in, multi-user Playwright end-to-end tests that AI coding agents (Claude Code, Cursor, Codex) can run without your credentials: personas, a key broker, an egress guard and leak-proof evidence.",
   "keywords": [
     "playwright",
     "e2e",
-    "testing",
+    "end-to-end-testing",
+    "test-automation",
+    "authentication-testing",
+    "multi-user",
+    "test-accounts",
     "personas",
-    "agents",
+    "ai-agents",
+    "coding-agents",
+    "claude-code",
+    "cursor",
+    "codex",
+    "agent-skills",
     "secrets",
-    "egress",
-    "evidence"
+    "secret-scanning",
+    "egress-proxy",
+    "devsecops",
+    "qa",
+    "typescript"
   ],
+  "homepage": "https://github.com/Prathyush-KKK/credless#readme",
+  "bugs": "https://github.com/Prathyush-KKK/credless/issues",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Prathyush-KKK/credless.git",
+    "directory": "packages/kit"
+  },
   "license": "Apache-2.0",
+  "author": "Prathyush K (https://github.com/Prathyush-KKK)",
   "type": "module",
   "sideEffects": [
     "./dist/worker-shim.js"
   ],
   "engines": {
-    "node": ">=24.12"
+    "node": ">=22.18"
   },
   "bin": {
     "credless": "./dist/cli.js"
@@ -60,6 +80,7 @@
   },
   "files": [
     "dist",
+    "demo",
     "skills",
     "templates",
     "contract",
@@ -67,7 +88,7 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "tsdown",
+    "build": "tsdown && node scripts/build-demo.ts",
     "typecheck": "tsc --noEmit -p .",
     "unit": "vitest run",
     "selftest": "node src/cli.ts run --target selftest --native",
@@ -96,7 +117,6 @@
     "vitest": "5.0.5"
   },
   "publishConfig": {
-    "access": "public",
-    "provenance": true
+    "access": "public"
   }
 }

@@ -34,6 +34,12 @@ export interface InitAnswers {
 }
 
 export interface WriteResult {
+  /**
+   * `esm` when the project's nearest package.json says `"type": "module"`, else `commonjs`. In a CommonJS project the
+   * TypeScript files are written as `.mts`: Node and Playwright compile a `.ts` there as CommonJS, where the
+   * config's `import.meta` and the kit's ES modules fail, while `.mts` is an ES module in any project.
+   */
+  moduleType: 'esm' | 'commonjs';
   /** files created, relative to the project directory */
   written: string[];
   /** files that existed and were left alone */
@@ -73,8 +79,8 @@ export function listTemplates(): TemplateEntry[] {
   return ENTRIES.map((entry) => ({ ...entry }));
 }
 
-/** The nearest ancestor of `from` whose package.json names the kit. */
-function packageRoot(from: string): string {
+/** The nearest ancestor of `from` whose package.json names the kit (the published `templates/` and `demo/` sit there). */
+export function packageRoot(from: string): string {
   let dir = from;
   for (;;) {
     const manifest = path.join(dir, 'package.json');
@@ -154,20 +160,65 @@ export function fillTemplate(text: string, answers: Required<InitAnswers>): stri
   return out.split(WEB).join(answers.web).split(API).join(answers.api);
 }
 
+/** `esm` when the nearest package.json at or above `dir` says `"type": "module"`; `commonjs` otherwise (Node's rule). */
+export function projectModuleType(dir: string): 'esm' | 'commonjs' {
+  let current = path.resolve(dir);
+  for (;;) {
+    const manifest = path.join(current, 'package.json');
+    if (existsSync(manifest)) {
+      try {
+        const parsed: unknown = JSON.parse(readFileSync(manifest, 'utf8'));
+        return typeof parsed === 'object' && parsed !== null && (parsed as { type?: unknown }).type === 'module'
+          ? 'esm'
+          : 'commonjs';
+      } catch {
+        return 'commonjs';
+      }
+    }
+    const parent = path.dirname(current);
+    if (parent === current) return 'commonjs';
+    current = parent;
+  }
+}
+
+/** The TypeScript files `init` writes, as the templates name them. */
+const TS_FILES = [CONFIG_FILE, 'playwright.config.ts', 'example.spec.ts'];
+
+/** A destination and the text of the templates spelled for a CommonJS project: `.mts` for the TypeScript files. */
+function forCommonJs(text: string): string {
+  let out = text;
+  for (const name of TS_FILES) out = out.split(name).join(`${name.slice(0, -3)}.mts`);
+  return out;
+}
+
 /** Write the templates into `dir`. Existing files are skipped (AGENTS.md gets the snippet appended once). */
 export async function writeTemplates(dir: string, answers: InitAnswers = {}): Promise<WriteResult> {
   const resolved = resolveAnswers(answers);
   const from = templatesDir();
-  const result: WriteResult = { written: [], skipped: [], appended: [], templatesDir: from };
+  const moduleType = projectModuleType(dir);
+  const result: WriteResult = { moduleType, written: [], skipped: [], appended: [], templatesDir: from };
   for (const entry of ENTRIES) {
     const sourcePath = path.join(from, entry.source);
-    const destinationPath = path.join(dir, entry.destination);
+    const destination = moduleType === 'commonjs' ? forCommonJs(entry.destination) : entry.destination;
+    const destinationPath = path.join(dir, destination);
     const raw = await readFile(sourcePath);
-    const content = entry.fill ? fillTemplate(raw.toString('utf8'), resolved) : raw;
+    let content: string | Buffer = entry.fill ? fillTemplate(raw.toString('utf8'), resolved) : raw;
+    if (moduleType === 'commonjs' && typeof content === 'string') content = forCommonJs(content);
     await mkdir(path.dirname(destinationPath), { recursive: true });
+    // A project that already has the other spelling of a TypeScript file keeps it: never two configs side by side.
+    const otherSpelling = /\.m?ts$/.test(destination)
+      ? path.join(
+          dir,
+          destination.endsWith('.mts') ? `${destination.slice(0, -4)}.ts` : `${destination.slice(0, -3)}.mts`,
+        )
+      : null;
+    if (otherSpelling && existsSync(otherSpelling)) {
+      result.skipped.push(path.relative(dir, otherSpelling));
+      continue;
+    }
     if (!existsSync(destinationPath)) {
       await writeFile(destinationPath, content, { flag: 'wx' });
-      result.written.push(entry.destination);
+      result.written.push(destination);
       continue;
     }
     if (entry.mode === 'append') {
@@ -178,10 +229,10 @@ export async function writeTemplates(dir: string, answers: InitAnswers = {}): Pr
       }
       const separator = existing.endsWith('\n') ? '\n' : '\n\n';
       await appendFile(destinationPath, `${separator}${content.toString()}`);
-      result.appended.push(entry.destination);
+      result.appended.push(destination);
       continue;
     }
-    result.skipped.push(entry.destination);
+    result.skipped.push(destination);
   }
   return result;
 }

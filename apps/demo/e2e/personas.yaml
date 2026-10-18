@@ -1,5 +1,7 @@
+# workspace-only:start
 # yaml-language-server: $schema=../../../packages/kit/schemas/personas.schema.json
 #
+# workspace-only:end
 # Persona catalog of the demo app: who the synthetic test accounts are and what each one is for.
 #
 # NO SECRETS HERE, EVER: no passwords, tokens, cookies, codes, or a real person's address. Agents read this file.

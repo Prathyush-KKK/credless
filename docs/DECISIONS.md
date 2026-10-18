@@ -63,7 +63,7 @@ One line per proposal the v0.1 tasks raised against the frozen interfaces (`docs
 - Task 8: the example app-level error code in the skill. Replaced by a made-up one (4201); the plugin copy re-synced.
 - Task 8: the action and the dogfood workflow. The action resolves the CLI with Node from its working directory
   (never npx's registry fallback) and the dogfood runs with `working-directory: apps/demo`.
-- Task 8: `credless demo --plant-secret`. Still planned; the docs say so.
+- Task 8: `credless demo --plant-secret`. Planned at first; implemented at launch (see "Launch packaging").
 - Task 8: E09 landed, so the README and quickstart sentences about the planted secret stand.
 
 ## Dependencies
@@ -90,3 +90,70 @@ One line per proposal the v0.1 tasks raised against the frozen interfaces (`docs
 - `checks.yml`: Linux and Windows, Node 24, `pnpm check` then the self-tests through the CLI, the evidence kept 14
   days, and a build job (tsdown, publint, attw, dry-run pack). The Windows job could not be run from the assembly
   machine; see the first CI run.
+
+## Launch packaging (npm, no CI)
+
+- Launch: the CLI was silent through npm's bin symlink (`import.meta.url` compared with argv[1] as a URL; argv[1] is
+  the link). `runner/entry.ts` compares real paths, tolerant of errors and case-insensitive on Windows;
+  `test/unit/cli-entry.test.ts` runs the CLI through a symlink.
+- Launch: the demo ships in the package with apps/demo as its one source. `packages/kit/scripts/build-demo.ts` (the
+  kit's `build`, after tsdown) bundles `apps/demo/src/server.ts` with what it imports into `dist/demo/server.js`,
+  `app.html` and `fake-secrets.json` beside it, and writes the e2e project to `packages/kit/demo/` (gitignored, in
+  `files`): the workspace's paths into the kit's source become `credless`, `credless/config`, `credless/adapters`;
+  lines between `workspace-only:start` and `workspace-only:end` markers are dropped (the standalone webServer, the
+  schema modeline, one comment); the build fails when a `../../../` path survives (`test/unit/build-demo.test.ts`
+  converts the real files). Not chosen: a second, hand-written project for the package, or JavaScript specs (the
+  shipped tests would stop being the ones the repository shows).
+- Launch: `credless demo` from the package copies that project to a fresh temp dir (Node strips no types and
+  Playwright transforms nothing under node_modules) whose `node_modules` holds two links: the kit's real package root
+  and the `@playwright/test` the kit itself resolves, so the config, the specs and the fixtures share one Playwright.
+  Per-package links rather than one link to the whole node_modules: that also works for a nested kit, pnpm's store
+  and npx's cache; junctions on Windows need no privilege. Evidence goes to `./credless-demo/reports/<run id>/` under
+  the working directory (`run()` gained an internal `reportsRoot`; `demo --reports-dir` overrides it); the temp copy
+  and the key dir go on exit, a signal included. From a checkout the demo runs from apps/demo as before. The checkout
+  is recognised from the kit's own package root (not under node_modules, `../../apps/demo` holds the demo); the walk
+  up from the working directory is gone, since a person's own `apps/demo/src/server.ts` would have been started.
+- Launch: without Chromium `demo` exits 2 and prints one command, `npx playwright@<resolved version> install
+  chromium` (pinned, because from a directory without a local Playwright, such as npx's cache, a bare `npx
+  playwright` fetches the latest). `runner/browsers.ts` is the check; doctor uses it too.
+- Launch: `demo --plant-secret` sets `DEMO_PLANT_SECRET` through `extraEnv` (a demo variable like `DEMO_WEB`, not a
+  kit knob, so no conventions §2 row; one would be accurate if wanted). The demo's Playwright config then adds a
+  `plant-secret` project the suite depends on: the plant spec reads the runner's password file without deleting it and
+  S1 deletes it, so the order is fixed. Without the flag the spec is not in the run (`testIgnore`); in any other
+  project it skips by project name, since test code reads no `process`. The command exits 0 only when evidence was
+  kept, the run exited 1, SUMMARY.md says FAIL with a LEAK line, scan.json counted a value and no kept file still
+  holds it; a usage exit (a held lock) passes through as 2. Self-test D01 drives it from source; `smoke:pack` drives
+  the package's copy.
+- Launch: doctor reports a slot that is not set yet for a remote target as a warning (`run` still refuses, with the
+  same words, before any secret is read); a malformed letter still fails. A first `doctor --offline` right after
+  `init` otherwise failed on a choice `init` cannot make for the machine.
+- Launch: `engines.node` is `>=22.18` in the kit, as at the root; doctor's one Node check is `NODE_FLOOR` (22.18
+  strips types by default) and `NODE_DECLARED` is gone. `publishConfig` is `{ access: public }`: provenance needs a CI
+  OIDC token this project will not have, and with it a local `npm publish` failed. npm metadata (description,
+  keywords, homepage, repository with `directory`, bugs, author) is set in the kit and mirrored in the private root.
+  `packages/kit/LICENSE` is a copy of the root one: npm does not take a workspace root's file, and `files` named a
+  LICENSE that was not there. `kitVersion()` checks the manifest's name (two levels above `dist/` is the installing
+  project's `node_modules`).
+- Launch: no CI, so `pnpm verify` (check, selftest, demo, build, smoke:pack) is the release gate.
+  `scripts/smoke-pack.mjs` packs the kit, installs the tarball and the pinned `@playwright/test` into a blank npm
+  project, and drives
+  `node_modules/.bin/credless` (help, version, init, doctor --offline, demo, demo --plant-secret, no temp dirs left),
+  then `npx --yes --package=<tgz> credless demo` from an empty dir (`npx <file>.tgz` runs the path as a command on npm
+  10). `scripts/release.mjs` refuses unless on main, clean and equal to origin/main, and unless the version is new
+  here and on npm; runs `pnpm verify`; shows `npm pack --dry-run`; publishes with `npm publish --access public` only
+  with `--yes`, then tags `v<version>` and prints the push. `scripts/package-managers.mjs` starts npm, npx and pnpm as
+  Node scripts (no shell, no .cmd shim).
+- Launch: Changesets is out of the release path and out of the repo: `.changeset/` and `@changesets/cli` removed
+  (lockfile and the Renovate group too). The version is bumped by hand in `packages/kit/package.json` and written up
+  in CHANGELOG.md. Left for the docs owner: the pull-request template's changeset checkbox, conventions §11's list.
+- Launch: `init` writes `credless.config.mts`, `playwright.config.mts` and `e2e/example.spec.mts` when the project's
+  nearest package.json is not `"type": "module"` (what `npm init -y` makes). In a CommonJS project Node and Playwright
+  compile a `.ts` as CommonJS, where the config's `import.meta` and the kit's ES modules fail (found by running the
+  shipped demo specs inside a blank `npm init -y` project: `SyntaxError: Cannot use 'import.meta' outside a module`);
+  `.mts` is an ES module in any project. ESM projects keep `.ts`. `init` never writes a second config next to an
+  existing `.ts` or `.mts` one. The packaged demo ships as `.mts` with no `"type"` in its package.json, so every
+  `credless demo` run proves the CommonJS case, and `smoke:pack` runs a real suite inside the blank project.
+- Launch: the root `contract/` (the core OpenAPI contract and the backend brief) is copied into the package at build;
+  `files` listed `contract` before, but the folder never existed in `packages/kit`, so the tarball had neither.
+- Launch: the maintainer's display name is public by choice (an independent maintainer, the npm `author`); the private
+  gate pattern for it, inherited from the predecessor, is dropped from the local list.
