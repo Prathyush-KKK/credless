@@ -1,0 +1,54 @@
+name: Bug
+description: Something in the kit does not do what the docs say.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks. Two rules before you type: **never paste a secret value, a cookie or a one-time code** (describe its
+        shape instead), and **never attach an evidence folder whole**; paste the lines of `SUMMARY.md` or
+        `scan.json` that matter. A secret value that survived the scrub is a security report, not a bug: use
+        [Security Advisories](https://github.com/Prathyush-KKK/credless/security/advisories/new).
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you ran, what you expected, what you got. Exit code if it was a run.
+    validations:
+      required: true
+  - type: textarea
+    id: doctor
+    attributes:
+      label: Output of `npx credless doctor --security`
+      description: It reads no secret and prints none; paste it whole. Add `--target <t>` if the bug involves a target.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Relevant lines of SUMMARY.md, scan.json or the run log
+      description: Lines, not folders. The kit's output is scrubbed, but check anyway before you paste.
+      render: text
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      description: credless, @playwright/test, Node, OS (and the Playwright image tag if you ran in docker mode)
+      placeholder: credless 0.1.0, @playwright/test 1.64.1, Node 24.12.0, Ubuntu 24.04
+    validations:
+      required: true
+  - type: dropdown
+    id: mode
+    attributes:
+      label: Run mode
+      options: [native, docker, the GitHub Action, the demo]
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before filing
+      options:
+        - label: No secret value, cookie or code is in this report.
+          required: true
+        - label: I did not attach an evidence folder.
+          required: true

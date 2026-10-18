@@ -1,0 +1,19 @@
+# Review ownership. Two approving reviews are required on the paths below (branch protection / ruleset: "require
+# review from Code Owners" plus a required approval count of 2 on main); one review elsewhere. An auto-updating
+# skill, a CI action or the runner's key handling is a one-change path into every machine that installed it.
+#
+# When a second maintainer joins, add them on the three lines below and keep the founder; the ruleset counts
+# distinct approvals, so one owner cannot approve a change alone.
+
+*                                   @Prathyush-KKK
+
+/plugins/                           @Prathyush-KKK
+/action/                            @Prathyush-KKK
+/packages/kit/src/runner/           @Prathyush-KKK
+
+# The skill is synced into the plugin, so its source carries the same ownership.
+/packages/kit/skills/               @Prathyush-KKK
+/.claude-plugin/                    @Prathyush-KKK
+/.github/workflows/                 @Prathyush-KKK
+/SECURITY.md                        @Prathyush-KKK
+/contract/                          @Prathyush-KKK

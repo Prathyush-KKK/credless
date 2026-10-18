@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Report a security finding (private)
+    url: https://github.com/Prathyush-KKK/credless/security/advisories/new
+    about: A secret value past the scrub, a bypass of the broker or the proxy, production reached. Private, 90-day coordinated disclosure, see SECURITY.md.
+  - name: Ask a question
+    url: https://github.com/Prathyush-KKK/credless/discussions
+    about: How-to questions, backend brief questions, adapter design before an issue.

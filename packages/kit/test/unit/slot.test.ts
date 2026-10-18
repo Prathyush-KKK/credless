@@ -1,0 +1,105 @@
+// Q02: against a remote target the runner never guesses a slot; the slot comes from --slot, CREDLESS_SLOT or the slot
+// file, in that order, is one lowercase letter, and is checked before any secret is read.
+import fs from 'node:fs';
+import path from 'node:path';
+import { afterEach, describe, expect, it } from 'vitest';
+import { checkSlot, resolveSlot, SlotError, slotFilePath } from '../../src/runner/slot.ts';
+import { cli, makeProject, type TempProject } from './helpers/tmp-project.ts';
+
+const made: TempProject[] = [];
+afterEach(() => {
+  for (const p of made.splice(0)) p.cleanup();
+});
+const project = (options?: Parameters<typeof makeProject>[0]) => {
+  const p = makeProject(options);
+  made.push(p);
+  return p;
+};
+
+describe('slot file path', () => {
+  it('follows XDG on POSIX and APPDATA on Windows', () => {
+    expect(slotFilePath({ env: {}, platform: 'linux', homedir: '/home/x' })).toBe('/home/x/.config/credless/slot');
+    expect(slotFilePath({ env: { XDG_CONFIG_HOME: '/cfg' }, platform: 'linux', homedir: '/home/x' })).toBe(
+      '/cfg/credless/slot',
+    );
+    const win = slotFilePath({
+      env: { APPDATA: 'C:\\Users\\x\\AppData\\Roaming' },
+      platform: 'win32',
+      homedir: 'C:\\Users\\x',
+    });
+    expect(win.split(path.sep).slice(-2)).toEqual(['credless', 'slot']);
+  });
+});
+
+describe('resolution and checks', () => {
+  it('prefers --slot, then the environment, then the file', () => {
+    const p = project();
+    const file = path.join(p.dir, 'slot');
+    fs.writeFileSync(file, 'f\n');
+    expect(resolveSlot({ flag: 'b', env: { CREDLESS_SLOT: 'c' }, file })).toMatchObject({ slot: 'b', source: 'flag' });
+    expect(resolveSlot({ env: { CREDLESS_SLOT: 'c' }, file })).toMatchObject({ slot: 'c', source: 'env' });
+    expect(resolveSlot({ env: {}, file })).toMatchObject({ slot: 'f', source: 'file' });
+    expect(resolveSlot({ env: {}, file: path.join(p.dir, 'missing') })).toMatchObject({ slot: null, source: 'none' });
+  });
+
+  it('defaults to a for local targets and for health, never for a remote target', () => {
+    const none = resolveSlot({ env: {}, file: '/nonexistent/slot' });
+    expect(checkSlot(none, { target: 'selftest', local: true })).toEqual({ slot: 'a', source: 'default' });
+    expect(checkSlot(none, { target: 'dev', local: false, needsNone: true })).toEqual({ slot: 'a', source: 'default' });
+    expect(() => checkSlot(none, { target: 'dev', local: false })).toThrow(/no slot for dev/);
+    expect(() => checkSlot(none, { target: 'dev', local: false })).toThrow(SlotError);
+  });
+
+  it('refuses anything but one lowercase letter (the file is trimmed, a flag is not)', () => {
+    expect(
+      resolveSlot({
+        env: {},
+        file: (() => {
+          const p = project();
+          const file = path.join(p.dir, 'slot');
+          fs.writeFileSync(file, ' g \r\n');
+          return file;
+        })(),
+      }).slot,
+    ).toBe('g');
+    for (const bad of ['ff', 'A', '1', 'a ', '']) {
+      const r = resolveSlot({ flag: bad || undefined, env: { CREDLESS_SLOT: bad }, file: '/nonexistent/slot' });
+      if (bad === '') expect(r.slot).toBeNull();
+      else expect(() => checkSlot(r, { target: 'dev', local: false })).toThrow(/one lowercase letter/);
+    }
+  });
+});
+
+describe('Q02 through the CLI', () => {
+  it('stops before any secret: no slot, then no key; the slot file counts; a bad letter is refused', () => {
+    const p = project();
+    const noSlot = /no slot for dev/;
+    const noKey = /no runner key \(env source\)/;
+    const tests = cli(p, ['run', '--target', 'dev', '--native']);
+    expect(tests.status, tests.all).toBe(2);
+    expect(tests.stderr).toMatch(noSlot);
+    expect(cli(p, ['seed', '--target', 'dev']).stderr).toMatch(noSlot);
+    // health touches no account, so it needs no slot; it goes on to the key (and stops there: none is set)
+    expect(cli(p, ['health', '--target', 'dev']).stderr).toMatch(noKey);
+    expect(cli(p, ['run', '--target', 'dev', '--native', '--slot', 'e']).stderr).toMatch(noKey);
+    const file = path.join(p.home, '.config', 'credless', 'slot');
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, 'f\n');
+    expect(cli(p, ['run', '--target', 'dev', '--native']).stderr).toMatch(noKey);
+    fs.writeFileSync(file, 'ff\n');
+    const bad = cli(p, ['run', '--target', 'dev', '--native']);
+    expect(bad.status).toBe(2);
+    expect(bad.stderr).toMatch(/one lowercase letter/);
+    // a local target needs no slot and reads no key: it gets as far as Playwright
+    const local = cli(p, ['run', '--target', 'selftest', '--native']);
+    expect(local.stderr).not.toMatch(noSlot);
+    expect(local.stderr).not.toMatch(noKey);
+  }, 180_000);
+
+  it('refuses a production-shaped target before the slot question', () => {
+    const p = project();
+    const r = cli(p, ['run', '--target', 'prodlike', '--native', '--slot', 'e']);
+    expect(r.status).toBe(2);
+    expect(r.stderr).toMatch(/production/);
+  });
+});

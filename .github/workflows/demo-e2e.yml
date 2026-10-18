@@ -1,0 +1,61 @@
+# Dogfood: run the kit's own GitHub Action against the bundled demo app on every push and pull request. No secret is
+# configured or needed; the demo target writes its own stand-in runner key (apps/demo/src/fake-secrets.json) and the
+# action's `key` input is left empty. The evidence becomes an artifact (14 days) and the verdict one PR comment.
+#
+# Before launch: pin the actions and the container image to digests (Renovate keeps them current).
+name: demo-e2e
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: demo-e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  demo:
+    name: Demo suite through the action
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      pull-requests: write # the one upserted comment; read-only on forks, where the action skips the comment
+    container:
+      image: mcr.microsoft.com/playwright:v1.64.1-noble # TODO before launch: pin by digest
+    steps:
+      - uses: actions/checkout@v4 # TODO before launch: pin to a SHA
+
+      - uses: pnpm/action-setup@v4 # TODO before launch: pin to a SHA
+
+      - uses: actions/setup-node@v4 # TODO before launch: pin to a SHA
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install and build (frozen lockfile, no install scripts)
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm build
+
+      - name: Run the demo suite through the action
+        id: demo
+        uses: ./action
+        with:
+          command: demo # `credless demo`: starts the demo app, runs the quickstart suite, no key
+          target: demo
+          slot: z
+          node-version: 24
+          install-browsers: 'false' # the Playwright image has them
+          reports-dir: apps/demo/reports # the demo runs with apps/demo as its project
+          retention-days: 14
+
+      - name: Verdict
+        if: always()
+        run: |
+          echo "verdict: ${{ steps.demo.outputs.verdict }}"
+          echo "summary: ${{ steps.demo.outputs.summary-path }}"

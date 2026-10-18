@@ -1,0 +1,58 @@
+# yaml-language-server: $schema=../../../packages/kit/schemas/personas.schema.json
+#
+# Persona catalog of the demo app: who the synthetic test accounts are and what each one is for.
+#
+# NO SECRETS HERE, EVER: no passwords, tokens, cookies, codes, or a real person's address. Agents read this file.
+#
+# A persona is a role, not an account. The runner creates one account per persona per namespace on the target
+# (test API `personas/ensure`), so parallel workers and agents never share a login:
+#   handle  a0.owner                     namespace a0 = agent slot "a" + worker 0, persona owner
+#   address qa+a0-owner@example.com      from addressTemplate
+#   name    Ada QA-a0                    from firstName + lastNameTemplate
+version: 1
+status: confirmed
+addressTemplate: "qa+{ns}-{persona}@example.com"
+lastNameTemplate: "QA-{ns}"
+defaults:
+  locale: en-GB
+  countryCode: GB
+  timezone: Europe/London
+  auth: session
+
+personas:
+  owner:
+    role: owner
+    firstName: Ada
+    purpose: Owns a workspace; invites people, removes members, shares the link and code.
+    usedBy: [W1, W2, W3, W4, F01, F03]
+
+  member:
+    role: member
+    firstName: Ben
+    purpose: Joins a workspace by mail invite, uploads into it, and is removed by the owner.
+    usedBy: [W1, W3, F01]
+
+  guest:
+    role: guest
+    firstName: Cleo
+    purpose: In no workspace by default; must never see workspace data, and is the wrong-code tester for the lock.
+    usedBy: [W2, W4, F02, F04]
+
+  second-owner:
+    role: owner
+    firstName: Dev
+    purpose: Owns a second workspace, for isolation between workspaces and a join into someone else's.
+    usedBy: [F02]
+
+  signin:
+    role: member
+    firstName: Eve
+    auth: password
+    purpose: Only for the sign-in screen itself; the password comes from the runner's file, never from this catalog.
+    usedBy: [S1]
+
+# Addresses that are deliberately NOT accounts: invite targets where nobody answers.
+addresses:
+  ghost:
+    template: "qa+{ns}-ghost@example.com"
+    purpose: An invited address with no account, so an invite can stay pending or expire.

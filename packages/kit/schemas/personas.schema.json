@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/credless/credless/packages/kit/schemas/personas.schema.json",
+  "title": "Persona catalog",
+  "description": "Who the synthetic test accounts are and what each one is for. A persona is a role, not an account: the runner creates one account per persona per namespace. No secrets, ever: the enforced schema (core/catalog.ts, zod) refuses credential-shaped attribute keys; this file mirrors it for editors.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "addressTemplate", "lastNameTemplate", "defaults", "personas"],
+  "properties": {
+    "version": { "const": 1 },
+    "status": { "enum": ["draft", "confirmed"] },
+    "addressTemplate": {
+      "type": "string",
+      "description": "Must contain {ns} and {persona} and render inside the config's personas.addressPattern.",
+      "pattern": "^[^@\\s]*\\{ns\\}[^@\\s]*\\{persona\\}[^@\\s]*@[^@\\s]+$"
+    },
+    "lastNameTemplate": { "type": "string", "pattern": "\\{ns\\}" },
+    "defaults": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["locale", "timezone", "auth"],
+      "properties": {
+        "locale": { "type": "string", "minLength": 2 },
+        "timezone": { "type": "string", "minLength": 1 },
+        "countryCode": { "type": "string", "pattern": "^[A-Z]{2}$" },
+        "auth": { "enum": ["session", "password"] }
+      }
+    },
+    "personas": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": { "pattern": "^[a-z](?:[a-z0-9-]{0,22}[a-z0-9])?$" },
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["role", "firstName", "purpose"],
+        "properties": {
+          "role": {
+            "type": "string",
+            "minLength": 1,
+            "description": "the app role the persona plays; the app's test API interprets it"
+          },
+          "firstName": {
+            "type": "string",
+            "minLength": 1,
+            "description": "unique in the catalog, so screenshots tell people apart"
+          },
+          "auth": { "enum": ["session", "password"] },
+          "locale": { "type": "string", "minLength": 2 },
+          "timezone": { "type": "string", "minLength": 1 },
+          "countryCode": { "type": "string", "pattern": "^[A-Z]{2}$" },
+          "attributes": {
+            "type": "object",
+            "description": "app-specific attributes the test API receives; never a password, token or secret",
+            "propertyNames": { "not": { "pattern": "(?i)password|passwd|token|secret" } }
+          },
+          "purpose": { "type": "string", "minLength": 1 },
+          "usedBy": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "addresses": {
+      "type": "object",
+      "description": "addresses that are deliberately not accounts (an invited address nobody answers for)",
+      "propertyNames": { "pattern": "^[a-z](?:[a-z0-9-]{0,22}[a-z0-9])?$" },
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["template", "purpose"],
+        "properties": {
+          "template": { "type": "string", "pattern": "\\{ns\\}" },
+          "purpose": { "type": "string", "minLength": 1 }
+        }
+      }
+    }
+  }
+}

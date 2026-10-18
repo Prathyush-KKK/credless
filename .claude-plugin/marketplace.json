@@ -1,0 +1,20 @@
+{
+  "name": "credless",
+  "owner": {
+    "name": "credless contributors"
+  },
+  "metadata": {
+    "description": "credless: signed-in, multi-user Playwright end-to-end tests a coding agent runs without the long-lived credential. One plugin: the e2e-testing skill and the deny-secrets hook.",
+    "note": "Add this marketplace at a release tag, never at main: the plugin's hook runs before every Bash call of your sessions, so install what you reviewed. Pin the tag when adding the marketplace (the repository URL followed by #v<version>) and update on purpose."
+  },
+  "plugins": [
+    {
+      "name": "credless",
+      "source": "./plugins/credless",
+      "description": "The e2e-testing skill (expected behaviour first, case list, cheapest layer, the framework, running, judging, agents) and a PreToolUse hook that refuses commands which would read the kit's staging dir, .env files, a process environment or a secret manager. A backstop, not a boundary.",
+      "version": "0.1.0",
+      "category": "testing",
+      "keywords": ["playwright", "e2e", "testing", "personas", "agents", "secrets", "evidence"]
+    }
+  ]
+}

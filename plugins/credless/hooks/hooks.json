@@ -1,0 +1,17 @@
+{
+  "description": "credless backstop: before every Bash call, refuse commands that would read the kit's private staging dir, .env files, a process environment or memory, a container's configuration, or a secret manager's values. Exit 2 with a one-line reason; everything else passes. A backstop, not a boundary.",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/deny-secrets.mjs\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,63 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": "Dependency updates with a cooldown: nothing is proposed until a release is 7 days old (plan T11, F8). GitHub Actions and docker images are pinned to digests; npm dependencies to exact versions (the repo already pins). Security advisories are reviewed by hand; the cooldown is not skipped automatically.",
+  "extends": [
+    "config:recommended",
+    "helpers:pinGitHubActionDigests",
+    ":pinAllExceptPeerDependencies",
+    ":semanticCommitsDisabled"
+  ],
+  "ignorePaths": [],
+  "minimumReleaseAge": "7 days",
+  "internalChecksFilter": "strict",
+  "rangeStrategy": "pin",
+  "pinDigests": true,
+  "dependencyDashboard": true,
+  "osvVulnerabilityAlerts": true,
+  "vulnerabilityAlerts": {
+    "enabled": true,
+    "labels": ["security"]
+  },
+  "lockFileMaintenance": {
+    "enabled": true,
+    "schedule": ["before 6am on monday"]
+  },
+  "labels": ["dependencies"],
+  "prConcurrentLimit": 5,
+  "packageRules": [
+    {
+      "description": "GitHub Actions and the workflow container images, one PR, SHA-pinned",
+      "matchManagers": ["github-actions"],
+      "groupName": "github actions",
+      "pinDigests": true
+    },
+    {
+      "description": "Playwright moves monthly; the image digest the runner pins (packages/kit/src/runner/docker.ts) and the container tag in the workflows change with it, by hand, in the same PR",
+      "matchPackageNames": ["@playwright/test", "playwright", "playwright-core"],
+      "groupName": "playwright"
+    },
+    {
+      "description": "Toolchain: biome, typescript, tsdown, vitest, publint, attw, changesets",
+      "matchPackageNames": [
+        "@biomejs/biome",
+        "typescript",
+        "tsdown",
+        "vitest",
+        "publint",
+        "@arethetypeswrong/cli",
+        "@changesets/cli"
+      ],
+      "groupName": "toolchain"
+    },
+    {
+      "description": "The peer range on @playwright/test stays a range (>=1.64 <2); only the dev pin moves",
+      "matchDepTypes": ["peerDependencies"],
+      "enabled": false
+    },
+    {
+      "description": "Optional natives ship prebuilds and no install script; a bump that adds a script is a decision, not an update",
+      "matchPackageNames": ["@napi-rs/keyring"],
+      "addLabels": ["review-install-scripts"]
+    }
+  ]
+}

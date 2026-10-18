@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Docs for teams (demo)</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { font: 16px/1.4 system-ui, sans-serif; margin: 0; padding: 16px; background: #fff; color: #111; }
+  @media (prefers-color-scheme: dark) { body { background: #111; color: #eee; } }
+  [data-boot-cover] { position: fixed; inset: 0; background: #2a5d8f; color: #fff; display: grid; place-items: center; font-size: 28px; }
+  nav a { margin-right: 12px; }
+  .row { padding: 10px 0; border-bottom: 1px solid #ccc; display: flex; gap: 12px; align-items: center; }
+  .row span { flex: 1; }
+  button, input { font: inherit; padding: 8px 12px; margin: 6px 6px 0 0; }
+  .code { font-size: 32px; letter-spacing: 4px; padding: 12px 0; font-variant-numeric: tabular-nums; }
+  .error { color: #a00; }
+</style>
+</head>
+<body>
+<div data-boot-cover>Docs for teams</div>
+<main id="root"></main>
+<script>
+  // A deliberately small stand-in for a web app: cookie sign-in (GET /api/me on boot), workspaces, members and their
+  // removal, invites, the link and code, joining, search, a document, and the /__demo/* pages that misbehave on
+  // purpose for the kit's guard (docs/conventions.md §10). The server fills in the api origin when it serves this file.
+  const API = '__API_ORIGIN__';
+  const root = document.getElementById('root');
+  const csrf = () => (document.cookie.match(/(?:^|; )csrf=([^;]*)/) || [])[1];
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const wire = (scope) => {
+    for (const a of scope.querySelectorAll('a[href^="/"]')) {
+      a.addEventListener('click', (e) => { e.preventDefault(); go(a.getAttribute('href')); });
+    }
+  };
+  const h = (html) => {
+    root.innerHTML = html;
+    wire(root);
+  };
+  async function api(path, options = {}) {
+    const headers = options.body ? { 'Content-Type': 'application/json' } : {};
+    if (options.method && options.method !== 'GET') headers['X-CSRF-Token'] = csrf() || '';
+    const res = await fetch(`${API}${path}`, { credentials: 'include', ...options, headers });
+    const body = res.status === 204 ? null : await res.json().catch(() => null);
+    return { ok: res.ok, status: res.status, body, error: body?.error ?? null };
+  }
+  const go = (path) => { history.pushState({}, '', path); route(); };
+  let me = null;
+  const nav = () => '<nav><a href="/">Home</a><a href="/search">Search</a></nav>';
+
+  async function route() {
+    const path = location.pathname;
+    if (path === '/login') return signIn();
+    if (path === '/__demo/console-error') { console.error('boom from the app'); return h('<p>console error page</p>'); }
+    if (path === '/__demo/outside') { fetch('https://outside.example/beacon').catch(() => {}); return h('<p>outside page</p>'); }
+    if (path === '/__demo/analytics') { const s = document.createElement('script'); s.src = 'https://www.googletagmanager.com/gtag/js?id=G-TEST'; document.head.appendChild(s); return h('<p>analytics page</p>'); }
+    if (path === '/__demo/prod') { fetch('https://www.example.com/config').catch(() => {}); return h('<p>prod page</p>'); }
+    if (path === '/__demo/expired') { await api('/api/expired-on-purpose'); return h('<p>expired page</p>'); }
+    if (path === '/__demo/http-error') { await fetch(`${API}/__demo/not-here`).catch(() => {}); return h('<p>http error page</p>'); }
+    if (path === '/__demo/password') {
+      // A password field that reports what reached it (the length only), for the typeSecret self-test.
+      h('<h1>Password</h1><label for="pw">Password</label><input type="password" id="pw" autocomplete="current-password"><p id="typed">typed 0 characters</p>');
+      const pw = document.getElementById('pw');
+      pw.addEventListener('input', () => { document.getElementById('typed').textContent = `typed ${pw.value.length} characters`; });
+      return;
+    }
+    if (path === '/__demo/webrtc') {
+      // WebRTC gathers candidates over UDP (STUN, TURN) straight from the browser, around any HTTP proxy.
+      h('<p>webrtc page</p><p id="ice">gathering</p>');
+      const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:127.0.0.1:3478' }, { urls: 'turn:127.0.0.1:3478?transport=udp', username: 'probe', credential: 'probe' }] });
+      pc.createDataChannel('probe');
+      const done = () => { document.getElementById('ice').textContent = 'gathering done'; };
+      pc.addEventListener('icegatheringstatechange', () => { if (pc.iceGatheringState === 'complete') done(); });
+      setTimeout(done, 4000);
+      await pc.setLocalDescription(await pc.createOffer());
+      return;
+    }
+    if (path === '/__demo/websocket') {
+      const target = new URLSearchParams(location.search).get('to') || 'ws://127.0.0.1:4319/socket';
+      const ws = new WebSocket(target);
+      ws.addEventListener('close', (e) => { document.getElementById('ws').textContent = `socket closed ${e.code}`; });
+      ws.addEventListener('error', () => {});
+      return h('<p>websocket page</p><p id="ws">socket opening</p>');
+    }
+    if (path.startsWith('/j/')) return joinLanding(path.slice(3));
+    if (!me) return go('/login');
+    if (path === '/') return home();
+    if (path === '/search') return search();
+    const ws = path.match(/^\/w\/(\d+)(\/members|\/link)?$/);
+    if (ws) {
+      const id = Number(ws[1]);
+      if (ws[2] === '/members') return members(id);
+      if (ws[2] === '/link') return linkAndCode(id);
+      return workspace(id);
+    }
+    const doc = path.match(/^\/d\/(\d+)$/);
+    if (doc) return documentPage(Number(doc[1]));
+    return h(`${nav()}<h1>Not found</h1>`);
+  }
+
+  function signIn() {
+    h('<h1>Sign in</h1><form id="signin"><label for="email">Email</label><input id="email" name="email" type="email" autocomplete="username" placeholder="Email">' +
+      '<label for="password">Password</label><input id="password" name="password" type="password" autocomplete="current-password">' +
+      '<button type="submit">Sign in</button></form><p id="msg" role="status" class="error"></p>');
+    document.getElementById('signin').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const r = await api('/api/login', { method: 'POST', body: JSON.stringify({ email: document.getElementById('email').value, password: document.getElementById('password').value }) });
+      if (!r.ok) { document.getElementById('msg').textContent = r.error ? r.error.message : 'Sign-in failed'; return; }
+      document.getElementById('password').value = '';
+      me = r.body.user;
+      go('/');
+    });
+  }
+
+  async function home() {
+    const r = await api('/api/workspaces');
+    const list = r.ok ? r.body.workspaces : [];
+    h(`${nav()}<h1>Hello ${esc(me.firstName)}</h1><p>Signed in as ${esc(me.email)}</p><h2>Workspaces</h2>` +
+      (list.length ? list.map((w) => `<div class="row" data-testid="workspace-row"><a href="/w/${w.id}">${esc(w.name)}</a><small>${esc(w.role)}</small></div>`).join('') : '<p>You are in no workspace yet.</p>'));
+  }
+
+  async function workspace(id) {
+    const r = await api(`/api/workspaces/${id}`);
+    if (!r.ok) return h(`${nav()}<h1>Not found</h1>`);
+    const w = r.body;
+    h(`${nav()}<h1>${esc(w.name)}</h1><p><a href="/w/${id}/members">Members</a>${w.role === 'owner' ? ` <a href="/w/${id}/link">Link and code</a>` : ''}</p><h2>Documents</h2>` +
+      (w.documents.length ? w.documents.map((d) => `<div class="row" data-testid="document-row"><a href="/d/${d.id}">${esc(d.title)}</a><small>${esc(d.uploadedBy)}</small></div>`).join('') : '<p>No documents yet.</p>'));
+  }
+
+  async function members(id) {
+    const r = await api(`/api/workspaces/${id}`);
+    if (!r.ok) return h(`${nav()}<h1>Not found</h1>`);
+    const w = r.body;
+    const owner = w.role === 'owner';
+    h(`${nav()}<h1>${esc(w.name)}</h1><h2>Members</h2>` +
+      w.members.map((m) => `<div class="row" data-testid="member-row" data-user-id="${esc(m.userId)}"><span>${esc(m.name)}</span><small>${esc(m.role)}</small>` +
+        (owner && m.role !== 'owner' ? `<button data-remove="${esc(m.userId)}">Remove ${esc(m.name)}</button>` : '') + '</div>').join('') +
+      (owner ? '<h2>Invites</h2>' + w.invites.map((i) => `<div class="row" data-testid="invite-row"><span>${esc(i.email)}</span><small>Pending</small></div>`).join('') +
+        '<form id="invite"><label for="invite-email">Email address</label><input id="invite-email" type="email" placeholder="Email address"><button type="submit">Send invite</button></form><p id="msg" role="status"></p>' : ''));
+    for (const btn of root.querySelectorAll('button[data-remove]')) {
+      btn.addEventListener('click', async () => {
+        await api(`/api/workspaces/${id}/members/${btn.dataset.remove}`, { method: 'DELETE' });
+        members(id);
+      });
+    }
+    const form = document.getElementById('invite');
+    if (form) form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const r = await api(`/api/workspaces/${id}/invites`, { method: 'POST', body: JSON.stringify({ email: document.getElementById('invite-email').value }) });
+      if (!r.ok) { document.getElementById('msg').textContent = r.error ? r.error.message : 'Invite failed'; return; }
+      members(id);
+    });
+  }
+
+  async function linkAndCode(id) {
+    const r = await api(`/api/workspaces/${id}`);
+    if (!r.ok || !r.body.joinCode) return h(`${nav()}<h1>Not found</h1>`);
+    const code = r.body.joinCode;
+    h(`${nav()}<h1>Link and code</h1><p>Share the link; tell the code in person.</p><p id="link">${esc(r.body.joinUrl)}</p><p>Workspace code</p><div class="code" id="code">${esc(`${code.slice(0, 3)} ${code.slice(3)}`)}</div>`);
+  }
+
+  function search() {
+    // The empty icon button is deliberate: the self-test expects axe to report it (button-name).
+    h(`${nav()}<h1>Search</h1><label for="q">Search</label><input placeholder="Search" id="q"><button id="go"></button><div id="results" data-testid="search-results"></div>`);
+    const q = document.getElementById('q');
+    const results = document.getElementById('results');
+    const run = async () => {
+      const r = await api(`/api/search?q=${encodeURIComponent(q.value)}`);
+      const hits = r.ok ? r.body.results : [];
+      results.innerHTML = hits.length
+        ? hits.map((d) => `<div class="row"><a href="/d/${d.id}">${esc(d.title)}</a></div>`).join('')
+        : '<p>No results</p>';
+      wire(results);
+    };
+    q.addEventListener('keydown', (e) => { if (e.key === 'Enter') run(); });
+    document.getElementById('go').addEventListener('click', run);
+  }
+
+  async function documentPage(id) {
+    const r = await api(`/api/documents/${id}`);
+    if (!r.ok) return h(`${nav()}<h1>Not found</h1><p>This document isn't available to you.</p>`);
+    h(`${nav()}<h1 data-testid="document-title">${esc(r.body.title)}</h1><p>In ${esc(r.body.workspace)}, uploaded by ${esc(r.body.uploadedBy)}</p>`);
+  }
+
+  async function joinLanding(token) {
+    const preview = await api(`/api/join/${encodeURIComponent(token)}`);
+    if (!preview.ok) return h("<h1>This link isn't valid</h1>");
+    const p = preview.body;
+    if (!me) return h(`<p>${esc(p.owner)} invited you to ${esc(p.workspace)}</p><p><a href="/login">Sign in to join</a></p>`);
+    h(`<p>${esc(p.owner)} invited you to ${esc(p.workspace)}</p><label for="code">Code</label>` +
+      '<input id="code" inputmode="numeric" autocomplete="one-time-code" data-sensitive><button id="join">Join workspace</button><p id="msg" role="status" data-testid="join-message"></p>');
+    document.getElementById('join').addEventListener('click', async () => {
+      const r = await api(`/api/join/${encodeURIComponent(token)}`, { method: 'POST', body: JSON.stringify({ code: document.getElementById('code').value }) });
+      document.getElementById('code').value = '';
+      document.getElementById('msg').textContent = r.ok ? `You're in ${r.body.workspace.name}` : (r.error ? r.error.message : 'Joining failed');
+    });
+  }
+
+  window.addEventListener('popstate', route);
+  (async () => {
+    // Boot like a web app with cookie auth: a JS-readable csrf cookie means a session may exist; /api/me decides.
+    if (csrf()) {
+      const r = await api('/api/me');
+      if (r.ok) me = r.body.user;
+    }
+    await route();
+    setTimeout(() => { const cover = document.querySelector('[data-boot-cover]'); if (cover) cover.remove(); }, 300);
+  })();
+</script>
+</body>
+</html>

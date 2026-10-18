@@ -1,0 +1,10 @@
+{
+  "name": "credless",
+  "version": "0.1.0",
+  "description": "The e2e-testing skill for credless (signed-in, multi-user Playwright end-to-end tests an agent runs without the long-lived credential) and a PreToolUse hook that refuses shell commands which would read the kit's staging dir, .env files, a process environment or a secret manager. The hook is a backstop, not a boundary.",
+  "author": {
+    "name": "credless contributors"
+  },
+  "license": "Apache-2.0",
+  "keywords": ["playwright", "e2e", "testing", "personas", "agents", "secrets", "evidence"]
+}

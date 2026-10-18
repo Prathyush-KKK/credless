@@ -1,0 +1,37 @@
+# credless persona catalog, written by `credless init`. Roles, not accounts: the runner creates one account per persona
+# per namespace (`a0.owner`, `a1.owner`, ...) through the test API, with the address template below. No secrets live
+# here, ever; which personas exist is a product decision, changed by pull request.
+version: 1
+status: draft
+addressTemplate: qa+{ns}-{persona}@example.com
+lastNameTemplate: QA-{ns}
+defaults:
+  locale: en-US
+  timezone: UTC
+  auth: session
+personas:
+  owner:
+    role: owner
+    firstName: Oona
+    purpose: owns a workspace; creates it, invites and removes members, changes settings
+  member:
+    role: member
+    firstName: Mika
+    purpose: a member of the owner's workspace; the person who gets removed or loses a permission
+  guest:
+    role: guest
+    firstName: Gael
+    purpose: never in the workspace; must see nothing of it; wrong-code and expired-link tester
+  second-owner:
+    role: owner
+    firstName: Saga
+    purpose: owns a second workspace, for isolation between workspaces
+  # signin:
+  #   role: member
+  #   firstName: Sunny
+  #   auth: password   # the one persona that signs in through the UI; its password comes to the test as a file, never a value
+  #   purpose: the sign-in screens themselves
+addresses:
+  ghost:
+    template: qa+{ns}-ghost@example.com
+    purpose: an invited address nobody answers for (pending invites, bounces)

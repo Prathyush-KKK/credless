@@ -1,0 +1,37 @@
+# End-to-end tests through credless, written by `credless init`. The runner key is an environment secret passed to
+# the one `run` step; the CLI takes it over and unsets it before any test runs. Pin the action to a release tag or a
+# commit SHA; `owner/credless/action@v0` below is a placeholder.
+name: e2e
+
+on:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      grep:
+        description: Only tests whose title matches (Playwright -g)
+        required: false
+        default: ''
+
+# One run per target at a time: CI owns slot z, and two runs on one slot would reset each other's accounts.
+concurrency:
+  group: credless-staging
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  pull-requests: write # the summary comment
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    # Protect this environment with required reviewers: the secret is released to the step only when a run is approved.
+    environment: staging
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+      - uses: owner/credless/action@v0 # placeholder: pin to a tag (vX.Y.Z) or a commit SHA
+        with:
+          target: staging
+          key: ${{ secrets.CREDLESS_RUNNER_KEY }}
+          slot: z
+          grep: ${{ github.event.inputs.grep }}

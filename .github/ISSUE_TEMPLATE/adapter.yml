@@ -1,0 +1,56 @@
+name: Adapter proposal
+description: Propose a session provider, key source, mail sink or backend implementation for an auth stack or framework.
+labels: [adapter]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        An adapter is about 150 lines against the [contract](../../contract/core.openapi.yaml) or one of the five
+        interfaces in `types.ts`. Answer what you can; "unknown" is a fine answer. See
+        [docs/site/adapters.md](../../docs/site/adapters.md) for the interfaces and the tiers.
+  - type: input
+    id: stack
+    attributes:
+      label: Auth stack or framework
+      placeholder: Clerk, Supabase, Auth0, WorkOS, Rails (Devise), Django, Laravel, Spring Boot, Next.js + Auth.js, Mailpit, Vault
+    validations:
+      required: true
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Which interface
+      options: [SessionProvider, KeySource, MailSink, AppSignals, Control extension, a backend implementation of the seven routes]
+    validations:
+      required: true
+  - type: textarea
+    id: auth
+    attributes:
+      label: The auth model
+      description: Cookies or tokens, where the session lives in the browser, TTL, how a real login sets it.
+    validations:
+      required: true
+  - type: textarea
+    id: mint
+    attributes:
+      label: How a session for a synthetic account can be minted server-side
+      description: The vendor API or framework seam, what credential it needs and where that credential would live (it must stay out of the test code; the kit's broker or your backend holds it).
+    validations:
+      required: true
+  - type: textarea
+    id: locks
+    attributes:
+      label: Which of the five locks the backend side can implement
+      description: Flag default off with the routes absent; boot guard refusing prod/staging; constant-time key compare with rotation; test-account flag plus address pattern; ingress 404 outside dev. Say which are possible, which are not, and why.
+  - type: textarea
+    id: mail
+    attributes:
+      label: Mail, OTP and MFA story
+      description: Where mail to test accounts can be captured (Mailpit, a vendor inbox, a sink table), whether MFA can be off for test accounts, whether codes can be read without a mailbox.
+  - type: checkboxes
+    id: offer
+    attributes:
+      label: Offer
+      options:
+        - label: I can write it.
+        - label: I can review it and run it against the real stack.
+        - label: I can maintain it as a community adapter (named in the adapters table, CI against a mock).

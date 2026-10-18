@@ -1,0 +1,186 @@
+# credless, as a composite GitHub Action (plan §8). Runs `credless doctor` and `credless run` against a target, keeps
+# the evidence folder as an artifact, appends SUMMARY.md to the job summary and, on a pull request, upserts ONE
+# comment marked `<!-- credless -->`. The action exits with the CLI's exit code: 0 pass, 1 fail or a leaked secret
+# value, 2 usage, 4 evidence unsafe (deleted).
+#
+# Where the key goes: the `key` input is set as CREDLESS_RUNNER_KEY in the environment of the one `run` step and
+# nowhere else. The CLI takes it over from its environment, deletes it from its own environment and hands it to the
+# run's global setup as a 0600 file that is read once and deleted; workers and browsers never see it. Pass it from an
+# environment secret with required reviewers. The demo target needs no key.
+#
+# Permissions the calling job needs: `contents: read`; `pull-requests: write` for the comment (on a fork's pull
+# request the token is read-only and the comment is skipped with a note). Run the job inside the Playwright image
+# (`mcr.microsoft.com/playwright:v<playwright>-noble`, pinned by digest) and set `install-browsers: 'false'`, or let
+# the action install Chromium.
+name: credless
+description: Signed-in, multi-user Playwright E2E against dev or staging without the key in the test; evidence as an artifact, the verdict as one PR comment.
+author: the credless maintainers
+
+branding:
+  icon: shield
+  color: purple
+
+inputs:
+  target:
+    description: "The target to run against, a key of `targets` in credless.config.ts. Production targets are refused by the CLI. With `command: demo` it only names the artifact; the demo picks its own target."
+    required: true
+  command:
+    description: "`run` (default) runs `credless run --target <target>`; `demo` runs `credless demo`, which starts the bundled demo app and the quickstart suite and needs no key (this repository's dogfood)."
+    required: false
+    default: run
+  key:
+    description: The test-API runner key, from an environment secret. Set only in the environment of the `run` step. Empty for the demo target.
+    required: false
+    default: ''
+  slot:
+    description: The agent slot letter (`^[a-z]$`); CI uses `z` so it never collides with a person's slot.
+    required: false
+    default: z
+  grep:
+    description: Only tests whose title matches this pattern (passed to Playwright as `--grep`).
+    required: false
+    default: ''
+  twice:
+    description: Run the suite twice and write FLAKES.md instead of retrying ('true' or 'false').
+    required: false
+    default: 'false'
+  workers:
+    description: Worker count; the config's default when empty.
+    required: false
+    default: ''
+  node-version:
+    description: Node version for actions/setup-node; the published package needs 24.12 or later.
+    required: false
+    default: '24'
+  config:
+    description: Path of the config file when it is not `credless.config.ts` in the working directory (passed as `--config`).
+    required: false
+    default: ''
+  install-browsers:
+    description: Install Chromium with its system dependencies before the run ('true'); set 'false' inside the Playwright image.
+    required: false
+    default: 'true'
+  working-directory:
+    description: The project directory that holds the config and the installed `credless` dependency.
+    required: false
+    default: '.'
+  retention-days:
+    description: How long the evidence artifact is kept. Anyone with read access to the repository can download it.
+    required: false
+    default: '14'
+  reports-dir:
+    description: Where the kept evidence lands, relative to the working directory (`evidence.reportsDir`, default `reports`; `apps/demo/reports` for the demo in this repository).
+    required: false
+    default: reports
+
+outputs:
+  verdict:
+    description: pass, fail, usage or unsafe (from the CLI's exit code; SUMMARY.md's own verdict line wins when present).
+    value: ${{ steps.summary.outputs.verdict }}
+  summary-path:
+    description: Path of the kept SUMMARY.md, empty when none was kept (usage error, or evidence deleted as unsafe).
+    value: ${{ steps.summary.outputs.summary-path }}
+  exit-code:
+    description: The CLI's exit code (0, 1, 2 or 4).
+    value: ${{ steps.run.outputs.exit-code }}
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v4 # TODO before launch: pin to a SHA
+      with:
+        node-version: ${{ inputs.node-version }}
+
+    - name: Enable corepack (pnpm and yarn from packageManager, when the project uses one)
+      shell: bash
+      run: corepack enable || echo 'corepack not available; using the npm on PATH'
+
+    - name: Install Chromium
+      if: inputs.install-browsers == 'true'
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: npx playwright install --with-deps chromium
+
+    - name: Doctor (reads no secret)
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        COMMAND: ${{ inputs.command }}
+        TARGET: ${{ inputs.target }}
+        CONFIG: ${{ inputs.config }}
+      run: |
+        set -u
+        if [ "$COMMAND" = 'demo' ]; then
+          npx credless doctor --offline --native   # the demo app is not up yet; no target to probe
+        else
+          args=(doctor --target "$TARGET" --native)
+          if [ -n "$CONFIG" ]; then args+=(--config "$CONFIG"); fi
+          npx credless "${args[@]}"
+        fi
+
+    - name: Run
+      id: run
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        # The one place the key exists in this job. Empty means no key (the demo target); the CLI must not see an
+        # empty variable, so it is unset below before anything runs.
+        CREDLESS_RUNNER_KEY: ${{ inputs.key }}
+        COMMAND: ${{ inputs.command }}
+        TARGET: ${{ inputs.target }}
+        SLOT: ${{ inputs.slot }}
+        GREP: ${{ inputs.grep }}
+        TWICE: ${{ inputs.twice }}
+        WORKERS: ${{ inputs.workers }}
+        CONFIG: ${{ inputs.config }}
+      run: |
+        set -u
+        if [ -z "${CREDLESS_RUNNER_KEY:-}" ]; then unset CREDLESS_RUNNER_KEY; fi
+        if [ "$COMMAND" = 'demo' ]; then
+          # the demo starts its own app and picks its own target; grep, twice and workers do not apply
+          args=(demo)
+        else
+          args=(run --target "$TARGET" --slot "$SLOT" --native)
+          if [ -n "$WORKERS" ]; then args+=(--workers "$WORKERS"); fi
+          if [ "$TWICE" = 'true' ]; then args+=(--twice); fi
+          if [ -n "$CONFIG" ]; then args+=(--config "$CONFIG"); fi
+          if [ -n "$GREP" ]; then args+=(-- --grep "$GREP"); fi
+        fi
+        set +e
+        npx credless "${args[@]}"
+        code=$?
+        set -e
+        echo "exit-code=$code" >> "$GITHUB_OUTPUT"
+        echo "credless run exited with $code (0 pass, 1 fail or leaked value, 2 usage, 4 evidence unsafe)"
+
+    - name: Keep the evidence
+      id: upload
+      if: always()
+      uses: actions/upload-artifact@v4 # TODO before launch: pin to a SHA
+      with:
+        name: credless-reports-${{ inputs.target }}-${{ github.run_id }}-${{ github.run_attempt }}
+        path: ${{ inputs.working-directory }}/${{ inputs.reports-dir }}/
+        if-no-files-found: ignore
+        retention-days: ${{ inputs.retention-days }}
+
+    - name: Job summary and PR comment
+      id: summary
+      if: always()
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        EXIT_CODE: ${{ steps.run.outputs.exit-code }}
+        REPORTS_DIR: ${{ inputs.reports-dir }}
+        ARTIFACT_URL: ${{ steps.upload.outputs.artifact-url }}
+        TARGET: ${{ inputs.target }}
+        GITHUB_TOKEN: ${{ github.token }}
+      run: node "$GITHUB_ACTION_PATH/summary.mjs"
+
+    - name: Exit with the run's code
+      if: always()
+      shell: bash
+      env:
+        EXIT_CODE: ${{ steps.run.outputs.exit-code }}
+      run: |
+        code="${EXIT_CODE:-2}"
+        exit "$code"

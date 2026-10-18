@@ -1,0 +1,14 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "../..",
+    "paths": {
+      "credless": ["../../packages/kit/src/index.ts"],
+      "credless/adapters": ["../../packages/kit/src/adapters/index.ts"],
+      "credless/config": ["../../packages/kit/src/config/index.ts"],
+      "credless/server": ["../../packages/kit/src/server/index.ts"],
+      "vitest": ["../../packages/kit/node_modules/vitest/dist/index.d.ts"]
+    }
+  },
+  "include": ["src/**/*.ts", "e2e/**/*.ts", "test/**/*.ts"]
+}

@@ -1,0 +1,345 @@
+# The demo app's extension routes (plan §4.5, extension pattern): what the demo's test API serves under the same
+# base path as the core contract, with the same runner-key header. `health.extensions` lists these operationIds; the
+# kit's broker forwards core plus these and nothing else; `check:contract` fails when this file and the demo's
+# handlers differ. An app writes its own file like this one and points `testApi.contract` at it.
+#
+# Schemas are repeated here rather than `$ref`'d across files, because the kit reads contracts without resolving
+# references (core/routes.ts, loadContractRoutes).
+openapi: 3.1.0
+info:
+  title: Demo app test API extensions
+  version: 0.1.0
+  summary: Workspaces, invites, documents and the invite sweeper of the demo "documents for teams" app.
+  description: |
+    Same conventions as the core contract: the runner key on every route, plain JSON answers, refusals as the HTTP
+    status plus `{ "error": { "code", "message" } }`. Handles are `<namespace>.<persona>`. Every object a route
+    creates is tagged with the run id, so the core `cleanupRun` removes it.
+  license:
+    name: Apache-2.0
+    identifier: Apache-2.0
+servers:
+  - url: '{origin}/_test'
+    description: The same base path as the core contract.
+    variables:
+      origin:
+        default: http://127.0.0.1:4311
+security:
+  - runnerKey: []
+tags:
+  - name: workspaces
+  - name: time
+
+paths:
+  /workspaces:
+    post:
+      tags: [workspaces]
+      operationId: createWorkspace
+      summary: A workspace in one call; the join code is in this answer only.
+      description: |
+        Owner, members (read and write), guests (read only), invites (each PENDING invite captures the mail with the
+        link and the code) and synthetic documents per uploader. Like a repository under an account, one live
+        workspace of a name per owner: a second one with the same name is a 409.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/WorkspaceSpec' }
+      responses:
+        '200':
+          description: Created. `joinCode` travels once, here; `getWorkspace` never repeats it.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Workspace'
+                  - type: object
+                    required: [joinCode]
+                    properties:
+                      joinCode: { $ref: '#/components/schemas/JoinCode' }
+        '401': { $ref: '#/components/responses/BadKey' }
+        '403': { $ref: '#/components/responses/NotTestAccount' }
+        '404': { $ref: '#/components/responses/Absent' }
+        '409':
+          description: The owner already owns a live workspace with this name.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '422': { $ref: '#/components/responses/Invalid' }
+
+  /workspaces/{id}:
+    get:
+      tags: [workspaces]
+      operationId: getWorkspace
+      summary: The server's view of a workspace (members, invites, documents); never the code.
+      parameters:
+        - $ref: '#/components/parameters/WorkspaceId'
+      responses:
+        '200':
+          description: Workspace.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Workspace' }
+        '401': { $ref: '#/components/responses/BadKey' }
+        '403': { $ref: '#/components/responses/NotTestAccount' }
+        '404': { $ref: '#/components/responses/Absent' }
+    delete:
+      tags: [workspaces]
+      operationId: deleteWorkspace
+      summary: Delete a workspace (members LEFT, documents gone). Teardown; deleting twice is fine.
+      parameters:
+        - $ref: '#/components/parameters/WorkspaceId'
+      responses:
+        '200':
+          description: Deleted, or already deleted.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [deleted]
+                properties:
+                  deleted: { type: boolean, const: true }
+        '401': { $ref: '#/components/responses/BadKey' }
+        '403': { $ref: '#/components/responses/NotTestAccount' }
+        '404': { $ref: '#/components/responses/Absent' }
+
+  /workspaces/{id}/lock-link:
+    post:
+      tags: [workspaces]
+      operationId: lockLink
+      summary: Lock the join link as five wrong codes would; the owner is notified.
+      parameters:
+        - $ref: '#/components/parameters/WorkspaceId'
+      responses:
+        '200':
+          description: Locked.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [locked]
+                properties:
+                  locked: { type: boolean, const: true }
+        '401': { $ref: '#/components/responses/BadKey' }
+        '403': { $ref: '#/components/responses/NotTestAccount' }
+        '404': { $ref: '#/components/responses/Absent' }
+
+  /invites/{id}/expire:
+    post:
+      tags: [time]
+      operationId: expireInvite
+      summary: Move one invite's expiry into the past; the invite sweeper then marks it EXPIRED.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        '200':
+          description: The invite, expiry moved.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Invite' }
+        '401': { $ref: '#/components/responses/BadKey' }
+        '404': { $ref: '#/components/responses/Absent' }
+
+  /sweepers/{name}/run:
+    post:
+      tags: [time]
+      operationId: runSweeper
+      summary: Run one scheduled sweeper now, scoped to one run and one namespace, and say what it changed.
+      description: Never global; the demo has one sweeper, `invites`, which expires pending invites past their expiry.
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema: { type: string, enum: [invites] }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [runId, namespace]
+              additionalProperties: false
+              properties:
+                runId: { $ref: '#/components/schemas/RunId' }
+                namespace: { type: string, pattern: '^[a-z][0-9]{1,2}$' }
+      responses:
+        '200':
+          description: Ran.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [name, ranAt, changed, details]
+                properties:
+                  name: { type: string }
+                  ranAt: { type: integer, description: epoch seconds }
+                  changed: { type: integer, minimum: 0 }
+                  details:
+                    type: array
+                    items: { type: string }
+        '401': { $ref: '#/components/responses/BadKey' }
+        '404': { $ref: '#/components/responses/Absent' }
+        '422': { $ref: '#/components/responses/Invalid' }
+
+  /documents/{id}:
+    get:
+      tags: [workspaces]
+      operationId: getDocument
+      summary: One synthetic document, as the fixture created it.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        '200':
+          description: Document.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Document' }
+        '401': { $ref: '#/components/responses/BadKey' }
+        '404': { $ref: '#/components/responses/Absent' }
+
+components:
+  securitySchemes:
+    runnerKey:
+      type: apiKey
+      in: header
+      name: X-Test-Runner-Key
+      description: The same runner key as the core contract, compared in constant time.
+
+  parameters:
+    WorkspaceId:
+      name: id
+      in: path
+      required: true
+      schema: { type: integer }
+
+  responses:
+    Absent:
+      description: The test API is not on in this environment, or the object does not exist.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    BadKey:
+      description: Missing or wrong runner key.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    NotTestAccount:
+      description: A handle is not a test account, or an address is outside the test range.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Invalid:
+      description: The request does not match this contract.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+
+  schemas:
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code: { type: string, examples: [bad-key, not-test-account, address-outside-range, invalid, not-found, conflict] }
+            message: { type: string, description: 'for people; never quotes a key, a cookie or a code' }
+
+    Handle:
+      type: string
+      pattern: '^[a-z][0-9]{1,2}\.[a-z](?:[a-z0-9-]{0,22}[a-z0-9])?$'
+
+    RunId:
+      type: string
+      pattern: '^[0-9]{8}T[0-9]{6}Z-[a-z0-9]{4}$'
+
+    JoinCode:
+      type: string
+      pattern: '^[0-9]{6}$'
+      description: The six-digit code typed with the link. The kit wraps it as a secret and never prints it.
+
+    WorkspaceSpec:
+      type: object
+      required: [runId, owner]
+      additionalProperties: false
+      properties:
+        runId: { $ref: '#/components/schemas/RunId' }
+        owner: { $ref: '#/components/schemas/Handle' }
+        name: { type: string, maxLength: 40, description: "defaults to 'Team <owner persona> <last four of the run id>'" }
+        members:
+          type: array
+          maxItems: 8
+          items: { $ref: '#/components/schemas/Handle' }
+        guests:
+          type: array
+          maxItems: 8
+          description: read-only members
+          items: { $ref: '#/components/schemas/Handle' }
+        invites:
+          type: array
+          maxItems: 8
+          items:
+            type: object
+            required: [email]
+            additionalProperties: false
+            properties:
+              email: { type: string, format: email, description: must be inside the test address range }
+              state: { type: string, enum: [PENDING, EXPIRED, LOCKED], default: PENDING }
+        documents:
+          type: object
+          description: 'documents to create per uploader handle (the owner included), 0 to 5 each'
+          additionalProperties: { type: integer, minimum: 0, maximum: 5 }
+
+    Workspace:
+      type: object
+      required: [id, name, status, joinUrl, locked, members, invites, documents]
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        status: { type: string, enum: [ACTIVE, DELETED] }
+        joinUrl: { type: string, format: uri, description: 'the join link on the web origin, `<web>/j/<token>`' }
+        locked: { type: boolean }
+        members:
+          type: array
+          items: { $ref: '#/components/schemas/Member' }
+        invites:
+          type: array
+          items: { $ref: '#/components/schemas/Invite' }
+        documents:
+          type: array
+          items: { $ref: '#/components/schemas/Document' }
+
+    Member:
+      type: object
+      required: [handle, userId, role, state]
+      properties:
+        handle: { $ref: '#/components/schemas/Handle' }
+        userId: { type: string }
+        role: { type: string, enum: [owner, member, guest] }
+        state: { type: string, enum: [ACTIVE, REMOVED, LEFT] }
+
+    Invite:
+      type: object
+      required: [id, email, state, expiresAt]
+      properties:
+        id: { type: integer }
+        email: { type: string }
+        state: { type: string, enum: [PENDING, JOINED, EXPIRED, LOCKED] }
+        expiresAt: { type: integer, description: epoch seconds }
+
+    Document:
+      type: object
+      required: [id, title, uploadedBy, workspaceId, path, indexed]
+      properties:
+        id: { type: integer }
+        title: { type: string }
+        uploadedBy: { $ref: '#/components/schemas/Handle' }
+        workspaceId: { type: integer }
+        path: { type: string, description: 'the web app route, for example `/d/1004`' }
+        indexed: { type: boolean }

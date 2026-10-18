@@ -1,0 +1,32 @@
+# Patterns the organisation-string gate refuses (scripts/org-gate.mjs; docs/conventions.md §13).
+# Copy this file to .org-gate.local, fill in the real strings, and NEVER commit the copy: it names the private origin.
+# One JavaScript regular expression per line, matched case-insensitively; `#` starts a comment.
+#
+# The six classes, with placeholders. Keep a line per spelling (with and without separators, abbreviations, old names).
+
+# 1. product and company names
+\byourproduct\b
+\byour[-_ ]?company\b
+
+# 2. the company's domains and every host under them
+(^|[^a-z0-9.-])yourcompany\.(com|io|ai|dev)\b
+\b[a-z0-9-]+\.internal\.yourcompany\.com\b
+
+# 3. mail addresses and address ranges on those domains
+qa\+[a-z0-9-]+@yourcompany\.com
+@yourcompany\.com\b
+
+# 4. people's and teams' names, cloud profile or account ids
+\bfirstname lastname\b
+\bteam-codename\b
+\bacct-[0-9]{6,}\b
+
+# 5. internal document and case-list ids, ticket keys, runbook names
+\bDOC-[0-9]{3,}\b
+\b[A-Z]{2,5}-[0-9]{2,5}\b
+\brunbook-codename\b
+
+# 6. the private framework's own cookie names, header names and environment-variable prefix
+\byour_session_cookie\b
+\bX-Your-Runner-Key\b
+\bYOURPREFIX_[A-Z]

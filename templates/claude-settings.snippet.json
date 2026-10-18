@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "deny": [
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Read(./.staging/**)",
+      "Read(~/.cache/credless/**)",
+      "Read(~/AppData/Local/credless/**)",
+      "Read(//proc/**)",
+      "Read(~/.kube/**)",
+      "Read(~/.config/infisical/**)",
+      "Read(~/.config/doppler/**)",
+      "Read(~/.config/op/**)",
+      "Bash(cat /proc:*)",
+      "Bash(printenv:*)",
+      "Bash(env)",
+      "Bash(ps:*)",
+      "Bash(docker inspect:*)",
+      "Bash(docker container inspect:*)",
+      "Bash(docker exec:*)",
+      "Bash(lldb:*)",
+      "Bash(gdb:*)",
+      "Bash(gcore:*)",
+      "Bash(kubectl get secret:*)",
+      "Bash(kubectl get secrets:*)",
+      "Bash(infisical secrets:*)",
+      "Bash(infisical export:*)",
+      "Bash(op read:*)",
+      "Bash(op item get:*)",
+      "Bash(vault kv get:*)",
+      "Bash(vault read:*)",
+      "Bash(doppler secrets:*)",
+      "Bash(sops:*)",
+      "Bash(echo $CREDLESS_RUNNER_KEY)",
+      "Bash(echo $CREDLESS_SIGNIN_PASSWORD)"
+    ]
+  }
+}
