@@ -1,0 +1,452 @@
+# The kit's core test-API contract (plan §4.5): the seven routes every backend implements under one base path.
+#
+# Source of truth between the kit and a backend. The kit's client routes (CORE_ROUTES in packages/kit/src/types.ts),
+# the broker's allowlist, the reference server (`<kit>/server`) and the demo app are checked against this file by
+# `check:contract`. An app adds its own routes under the same base path in a second file (the extension pattern,
+# for example apps/demo/contract/demo.openapi.yaml) and lists their operationIds in `health.extensions`.
+#
+# Five locks (contract/BACKEND-BRIEF.md): a feature flag (off: the routes are not registered, plain 404), a boot
+# guard (the flag can only be on in non-production builds), the runner key on every route (constant time), the
+# test-account flag on every object touched (never a real user), and ingress (the base path is reachable from the
+# dev ingress only). The kit relies on the backend for the TTL of minted sessions (at most 3600 s is recommended)
+# and revokes them through `cleanupRun`.
+openapi: 3.1.0
+info:
+  title: Core test API
+  version: 0.1.0
+  summary: Synthetic personas, server-minted sessions, state control and sinks for end-to-end tests on dev or staging.
+  description: |
+    Every route needs the runner key in the `X-Test-Runner-Key` header (the header name is configurable on both
+    sides; this is the default). Answers are plain JSON, no envelope. Refusals carry the matching HTTP status and a
+    body `{ "error": { "code", "message" } }`.
+
+    Handles are `<namespace>.<persona>`, for example `a0.owner`: the namespace is one lowercase letter (the agent
+    slot) plus the worker index, the persona id comes from the catalog. One account exists per handle.
+
+    Status codes: 401 when the key is missing or wrong; 403 when the handle is not a test account or an address is
+    outside the configured test range; 404 when the flag is off (the route must not exist) or the object is unknown;
+    409 on a state conflict; 422 when the request does not match this contract; 429 when the key's session rate
+    limit is hit. Every call is audited with a key id (first 8 hex of SHA-256 of the key), never the key.
+  license:
+    name: Apache-2.0
+    identifier: Apache-2.0
+servers:
+  - url: '{origin}/_test'
+    description: The base path on the backend's origin (configurable; `/_test` is the default).
+    variables:
+      origin:
+        default: https://dev.api.example
+security:
+  - runnerKey: []
+tags:
+  - name: runs
+  - name: personas
+  - name: session
+  - name: sinks
+
+paths:
+  /health:
+    get:
+      tags: [runs]
+      operationId: health
+      summary: Is the test API on, which environment is this, and are its sinks wired? Fails fast before a suite starts.
+      responses:
+        '200':
+          description: Enabled and configured.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Health' }
+        '401': { $ref: '#/components/responses/BadKey' }
+        '404': { $ref: '#/components/responses/Absent' }
+
+  /personas/ensure:
+    post:
+      tags: [personas]
+      operationId: ensurePersonas
+      summary: Create the test accounts that do not exist yet; leave existing ones as they are.
+      description: |
+        Only addresses inside the backend's configured test range are accepted (403 otherwise). New accounts are
+        flagged as test accounts, verified, complete (no onboarding-only session), with no welcome mail, and the
+        given attributes are stored as the account's baseline for `resetPersonas`. Idempotent.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [personas]
+              additionalProperties: false
+              properties:
+                personas:
+                  type: array
+                  minItems: 1
+                  maxItems: 64
+                  items: { $ref: '#/components/schemas/PersonaSpec' }
+      responses:
+        '200':
+          description: Every persona exists and is flagged.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [personas]
+                properties:
+                  personas:
+                    type: array
+                    items: { $ref: '#/components/schemas/PersonaRef' }
+        '401': { $ref: '#/components/responses/BadKey' }
+        '403': { $ref: '#/components/responses/NotTestAccount' }
+        '404': { $ref: '#/components/responses/Absent' }
+        '422': { $ref: '#/components/responses/Invalid' }
+
+  /personas/reset:
+    post:
+      tags: [personas]
+      operationId: resetPersonas
+      summary: Put test accounts back to their baseline.
+      description: |
+        For each account: remove or leave everything it owns or belongs to that a test could have created, clear
+        its captured mail and notifications, and restore the baseline attributes. Idempotent. The counts say what
+        was removed per kind (the kinds are the app's).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [handles]
+              additionalProperties: false
+              properties:
+                handles:
+                  type: array
+                  minItems: 1
+                  maxItems: 64
+                  items: { $ref: '#/components/schemas/Handle' }
+      responses:
+        '200':
+          description: Reset.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [reset]
+                properties:
+                  reset:
+                    type: array
+                    items: { $ref: '#/components/schemas/ResetResult' }
+        '401': { $ref: '#/components/responses/BadKey' }
+        '403': { $ref: '#/components/responses/NotTestAccount' }
+        '404': { $ref: '#/components/responses/Absent' }
+        '422': { $ref: '#/components/responses/Invalid' }
+
+  /personas/{handle}:
+    get:
+      tags: [personas]
+      operationId: personaState
+      summary: The server's view of one test account; the shape under `state` is the app's.
+      parameters:
+        - $ref: '#/components/parameters/Handle'
+      responses:
+        '200':
+          description: State.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PersonaState' }
+        '401': { $ref: '#/components/responses/BadKey' }
+        '403': { $ref: '#/components/responses/NotTestAccount' }
+        '404': { $ref: '#/components/responses/Absent' }
+
+  /session:
+    post:
+      tags: [session]
+      operationId: createSession
+      summary: Sign a test account in server-side and answer with the same Set-Cookie a real login sends.
+      description: |
+        Reuses the app's own login seam, so the cookies are exactly those a web login sets (names, flags, TTL), and
+        the app boots signed in with no storage touched. The session is tagged with `runId`, so `cleanupRun` can
+        revoke it. The session value is never in the body. No login mail, push or analytics event is sent.
+        Recommended: `HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age` of at most 3600.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateSessionRequest' }
+      responses:
+        '200':
+          description: Signed in. `Set-Cookie` carries the session (and any companion cookie, for example a CSRF token).
+          headers:
+            Set-Cookie:
+              description: |
+                One or more cookies, as the app's login sends them, for example
+                `sid=<opaque>; Path=/; Max-Age=3600; HttpOnly; Secure; SameSite=Lax`. The kit narrows domain cookies
+                to host-only cookies on the run's own hosts before injecting them.
+              schema: { type: string }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Session' }
+        '401': { $ref: '#/components/responses/BadKey' }
+        '403': { $ref: '#/components/responses/NotTestAccount' }
+        '404': { $ref: '#/components/responses/Absent' }
+        '422': { $ref: '#/components/responses/Invalid' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+  /personas/{handle}/messages:
+    get:
+      tags: [sinks]
+      operationId: personaMessages
+      summary: Mail captured by the sink for this test account, newest first. Mail to test accounts is captured, never sent.
+      description: Links and one-time codes are parsed out of the body so a test never reads raw mail. The kit never prints a code.
+      parameters:
+        - $ref: '#/components/parameters/Handle'
+        - name: since
+          in: query
+          description: epoch seconds; only messages sent at or after this time
+          schema: { type: integer, minimum: 0 }
+        - name: kind
+          in: query
+          description: the app's own classification of a message (for example `invite`, `auth`); omitted means any
+          schema: { type: string, maxLength: 32 }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 50, default: 10 }
+      responses:
+        '200':
+          description: Messages.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [messages]
+                properties:
+                  messages:
+                    type: array
+                    items: { $ref: '#/components/schemas/Message' }
+        '401': { $ref: '#/components/responses/BadKey' }
+        '403': { $ref: '#/components/responses/NotTestAccount' }
+        '404': { $ref: '#/components/responses/Absent' }
+
+  /runs/{runId}/cleanup:
+    post:
+      tags: [runs]
+      operationId: cleanupRun
+      summary: Safety net at the end of a suite; remove everything tagged with this run and revoke its sessions.
+      description: Called by the kit's global teardown, and by `run` again if a run was killed. Idempotent; a run with nothing left answers zeros.
+      parameters:
+        - name: runId
+          in: path
+          required: true
+          schema: { $ref: '#/components/schemas/RunId' }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                revokeSessions:
+                  type: boolean
+                  default: true
+                  description: revoke every session minted under this run id
+      responses:
+        '200':
+          description: Cleaned.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CleanupResult' }
+        '401': { $ref: '#/components/responses/BadKey' }
+        '404': { $ref: '#/components/responses/Absent' }
+        '422': { $ref: '#/components/responses/Invalid' }
+
+components:
+  securitySchemes:
+    runnerKey:
+      type: apiKey
+      in: header
+      name: X-Test-Runner-Key
+      description: |
+        The runner key, held by the backend's secret store and by the kit's key source; compared in constant time
+        against the current key and the next one (rotation). Audit logs record a key id (first 8 hex of its
+        SHA-256), never the key. The header name is configurable on both sides; this is the default.
+
+  parameters:
+    Handle:
+      name: handle
+      in: path
+      required: true
+      schema: { $ref: '#/components/schemas/Handle' }
+
+  responses:
+    Absent:
+      description: The test API is not on in this environment (the route is not registered), or the object does not exist.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    BadKey:
+      description: Missing or wrong runner key.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    NotTestAccount:
+      description: The account is not flagged as a test account, or an address is outside the configured test range.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Invalid:
+      description: The request does not match this contract.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    RateLimited:
+      description: Too many sessions for this key (the brief recommends 120 a minute).
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+
+  schemas:
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              description: a stable machine-readable code
+              examples: [bad-key, not-test-account, address-outside-range, invalid, not-found, conflict, rate-limited]
+            message:
+              type: string
+              description: for people; never quotes a key, a cookie or a code
+
+    Handle:
+      type: string
+      description: '`<namespace>.<persona>`, for example `a0.owner`'
+      pattern: '^[a-z][0-9]{1,2}\.[a-z](?:[a-z0-9-]{0,22}[a-z0-9])?$'
+
+    RunId:
+      type: string
+      description: a UTC stamp plus four random base-36 characters, for example `20261008T101500Z-ab12`
+      pattern: '^[0-9]{8}T[0-9]{6}Z-[a-z0-9]{4}$'
+
+    UserId:
+      type: string
+      description: the backend's id for an account, as a string; opaque to the kit
+      minLength: 1
+      maxLength: 128
+
+    Health:
+      type: object
+      required: [enabled, environment, keyId, sinks, extensions]
+      properties:
+        enabled: { type: boolean, const: true }
+        environment: { type: string, examples: [dev, staging] }
+        keyId: { type: string, description: first 8 hex of SHA-256 of the key that was presented, pattern: '^[0-9a-f]{8}$' }
+        version: { type: string, description: the backend's build id }
+        sinks:
+          type: object
+          description: 'what the backend has wired for test accounts, for example `{ "mail": true, "push": true, "analytics": true }`; the kit refuses a real run when any is false'
+          additionalProperties: { type: boolean }
+        extensions:
+          type: array
+          description: operationIds of the app's extension routes this backend implements under the same base path
+          items: { type: string }
+
+    PersonaSpec:
+      type: object
+      required: [handle, email, displayName, attributes]
+      additionalProperties: false
+      properties:
+        handle: { $ref: '#/components/schemas/Handle' }
+        email: { type: string, format: email, description: must be inside the backend's configured test range }
+        displayName: { type: string, maxLength: 80 }
+        attributes:
+          type: object
+          description: |
+            The catalog entry's attributes. Well-known keys the kit always sends: `role` (string), `firstName`,
+            `lastName`, `locale`, `timezone`, `countryCode` (when set) and `auth` (`session` or `password`; a
+            `password` account gets its password from the backend's own secret store, for the sign-in screen test
+            only). Any other key is the app's.
+          additionalProperties: true
+
+    PersonaRef:
+      type: object
+      required: [handle, userId, created]
+      properties:
+        handle: { $ref: '#/components/schemas/Handle' }
+        userId: { $ref: '#/components/schemas/UserId' }
+        created: { type: boolean }
+
+    PersonaState:
+      type: object
+      required: [handle, userId, state]
+      properties:
+        handle: { $ref: '#/components/schemas/Handle' }
+        userId: { $ref: '#/components/schemas/UserId' }
+        state:
+          type: object
+          description: the app's view of the account (memberships, plan, flags); the demo reports `workspaces`
+          additionalProperties: true
+
+    ResetResult:
+      type: object
+      required: [handle, removed]
+      properties:
+        handle: { $ref: '#/components/schemas/Handle' }
+        removed: { $ref: '#/components/schemas/Counts' }
+
+    Counts:
+      type: object
+      description: 'objects removed per kind, for example `{ "workspaces": 1, "documents": 3 }`'
+      additionalProperties: { type: integer, minimum: 0 }
+
+    CreateSessionRequest:
+      type: object
+      required: [handle, runId]
+      additionalProperties: false
+      properties:
+        handle: { $ref: '#/components/schemas/Handle' }
+        runId: { $ref: '#/components/schemas/RunId' }
+        client:
+          type: string
+          default: web
+          description: which client the session is for, when the backend issues different cookies per client
+
+    Session:
+      type: object
+      required: [user, expiresAt]
+      properties:
+        user:
+          type: object
+          description: the signed-in user as the app's login answers it; no token in it
+          required: [userId, email, displayName]
+          properties:
+            userId: { $ref: '#/components/schemas/UserId' }
+            email: { type: string }
+            displayName: { type: string }
+        expiresAt: { type: integer, description: epoch seconds; the brief recommends at most one hour after issue }
+
+    Message:
+      type: object
+      required: [id, to, subject, sentAt, links, codes]
+      properties:
+        id: { type: string }
+        to: { type: string }
+        subject: { type: string }
+        sentAt: { type: integer, description: epoch seconds }
+        kind: { type: string, description: the app's own classification }
+        links:
+          type: array
+          items: { type: string, format: uri }
+        codes:
+          type: array
+          description: one-time codes found in the body; the kit wraps them as secrets and never prints them
+          items: { type: string }
+
+    CleanupResult:
+      type: object
+      required: [removed, sessionsRevoked]
+      properties:
+        removed: { $ref: '#/components/schemas/Counts' }
+        sessionsRevoked: { type: integer, minimum: 0 }

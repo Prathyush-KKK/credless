@@ -1,0 +1,35 @@
+{
+  "name": "kit-workspace",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Workspace for the kit: a Playwright layer for signed-in, multi-user end-to-end tests where the long-lived credential never reaches the agent, the test code, the browser or the evidence.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "packageManager": "pnpm@12.14.0",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "check": "pnpm lint && pnpm typecheck && pnpm unit && pnpm contract:check && pnpm skill:check && pnpm catalog:check",
+    "test": "pnpm check && pnpm selftest",
+    "build": "pnpm --filter ./packages/kit build",
+    "lint": "biome check .",
+    "format": "biome format --write .",
+    "typecheck": "pnpm -r --if-present run typecheck",
+    "selftest": "pnpm --filter ./packages/kit selftest",
+    "unit": "pnpm --filter ./packages/kit unit",
+    "contract:check": "echo \"TODO Task 5: contract:check (client routes are a subset of the contracts, every contract route has a demo handler, no route outside the base path)\"",
+    "skill:check": "echo \"TODO Task 7: skill:check (packages/kit/skills/e2e-testing and plugins/kit/skills/e2e-testing are identical)\"",
+    "catalog:check": "echo \"TODO Task 5: catalog:check (apps/demo/e2e/personas.yaml validates against the catalog schema)\"",
+    "pack:check": "pnpm --filter ./packages/kit build && pnpm --filter ./packages/kit pack:check",
+    "release": "echo \"TODO Task 8: changeset version, then pnpm publish -r with provenance\""
+  },
+  "devDependencies": {
+    "@arethetypeswrong/cli": "0.18.5",
+    "@biomejs/biome": "2.5.15",
+    "@changesets/cli": "3.0.3",
+    "@types/node": "24.19.2",
+    "publint": "0.3.25",
+    "typescript": "5.9.3"
+  }
+}

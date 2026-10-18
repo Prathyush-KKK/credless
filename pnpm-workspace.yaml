@@ -1,0 +1,7 @@
+packages:
+  - packages/*
+  - apps/*
+
+# No dependency may run install scripts (plan T11, 04 §4). A package goes on this list only with a reviewed reason
+# in DECISIONS.md; the natives the kit uses (biome, keyring) ship prebuilds and need none.
+onlyBuiltDependencies: []

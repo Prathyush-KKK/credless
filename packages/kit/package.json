@@ -1,0 +1,91 @@
+{
+  "name": "credless",
+  "version": "0.1.0",
+  "description": "A Playwright layer for signed-in, multi-user end-to-end tests against dev or staging: synthetic personas minted server-side, a brokered test-API key that never reaches the test code or the browser, an egress proxy that refuses production below Playwright routing, and evidence that fails the run if a secret value survives.",
+  "keywords": [
+    "playwright",
+    "e2e",
+    "testing",
+    "personas",
+    "agents",
+    "secrets",
+    "egress",
+    "evidence"
+  ],
+  "license": "Apache-2.0",
+  "type": "module",
+  "sideEffects": false,
+  "engines": {
+    "node": ">=24.12"
+  },
+  "bin": {
+    "credless": "./dist/cli.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./config": {
+      "types": "./dist/config.d.ts",
+      "default": "./dist/config.js"
+    },
+    "./adapters": {
+      "types": "./dist/adapters.d.ts",
+      "default": "./dist/adapters.js"
+    },
+    "./server": {
+      "types": "./dist/server.d.ts",
+      "default": "./dist/server.js"
+    },
+    "./reporter": {
+      "types": "./dist/reporter.d.ts",
+      "default": "./dist/reporter.js"
+    },
+    "./cli": {
+      "types": "./dist/cli.d.ts",
+      "default": "./dist/cli.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "skills",
+    "contract",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsdown",
+    "typecheck": "tsc --noEmit -p .",
+    "unit": "vitest run",
+    "selftest": "echo \"TODO Task 6: playwright test --project=selftest (through the runner: node dist/cli.js run --target selftest --native)\"",
+    "pack:check": "publint && attw --pack . --profile esm-only"
+  },
+  "peerDependencies": {
+    "@playwright/test": ">=1.64 <2"
+  },
+  "dependencies": {
+    "@axe-core/playwright": "4.14.0",
+    "fflate": "0.8.3",
+    "yaml": "2.9.1",
+    "zod": "4.6.7"
+  },
+  "optionalDependencies": {
+    "@napi-rs/keyring": "2.1.1",
+    "playwright-ctrf-json-reporter": "0.2.0"
+  },
+  "devDependencies": {
+    "@arethetypeswrong/cli": "0.18.5",
+    "@playwright/test": "1.64.1",
+    "@types/node": "24.19.2",
+    "publint": "0.3.25",
+    "tsdown": "0.23.1",
+    "typescript": "5.9.3",
+    "vitest": "5.0.5"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  }
+}

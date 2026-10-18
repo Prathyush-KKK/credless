@@ -1,0 +1,108 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.5.15/schema.json",
+  "vcs": {
+    "enabled": false,
+    "clientKind": "git",
+    "useIgnoreFile": false
+  },
+  "files": {
+    "includes": [
+      "**",
+      "!**/node_modules",
+      "!**/dist",
+      "!**/reports",
+      "!**/.staging",
+      "!**/test-results",
+      "!pnpm-lock.yaml"
+    ]
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 120,
+    "lineEnding": "lf"
+  },
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "single",
+      "trailingCommas": "all",
+      "semicolons": "always"
+    }
+  },
+  "json": {
+    "formatter": {
+      "enabled": true
+    }
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "preset": "recommended",
+      "correctness": {
+        "noUnusedImports": "error",
+        "noUnusedVariables": "error"
+      },
+      "style": {
+        "useImportType": "error",
+        "useExportType": "error",
+        "noParameterProperties": "error",
+        "noEnum": "error",
+        "noNamespace": "error"
+      },
+      "suspicious": {
+        "noConsole": "off"
+      }
+    }
+  },
+  "assist": {
+    "actions": {
+      "source": {
+        "organizeImports": "on"
+      }
+    }
+  },
+  "overrides": [
+    {
+      "includes": ["**/e2e/**", "packages/kit/test/selftest/**", "templates/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "paths": {
+                  "playwright": "Test code gets its browsers from the kit's fixtures (personas.open), never from playwright directly.",
+                  "playwright-core": "Test code gets its browsers from the kit's fixtures (personas.open), never from playwright-core.",
+                  "node:http": "Test code reaches the network only through the persona's browser or session.api(); plan §6 F3.",
+                  "node:https": "Test code reaches the network only through the persona's browser or session.api(); plan §6 F3.",
+                  "node:net": "Test code reaches the network only through the persona's browser or session.api(); plan §6 F3.",
+                  "node:tls": "Test code reaches the network only through the persona's browser or session.api(); plan §6 F3.",
+                  "node:dgram": "Test code reaches the network only through the persona's browser or session.api(); plan §6 F3.",
+                  "node:child_process": "Test code spawns nothing; plan §6 F3.",
+                  "node:fs": "Test code writes evidence through shot() and aria(), never the file system; plan §6 F3.",
+                  "http": "Use the kit's fixtures; plan §6 F3.",
+                  "https": "Use the kit's fixtures; plan §6 F3.",
+                  "net": "Use the kit's fixtures; plan §6 F3.",
+                  "tls": "Use the kit's fixtures; plan §6 F3.",
+                  "dgram": "Use the kit's fixtures; plan §6 F3.",
+                  "child_process": "Use the kit's fixtures; plan §6 F3.",
+                  "fs": "Use the kit's fixtures; plan §6 F3."
+                }
+              }
+            },
+            "noRestrictedGlobals": {
+              "level": "error",
+              "options": {
+                "deniedGlobals": {
+                  "fetch": "Bare fetch() from a test bypasses the persona's egress proxy; use session.api() or the browser. Plan §6 F3.",
+                  "process": "Test code reads no environment; the kit's config carries what a test needs. Plan §6 F3."
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

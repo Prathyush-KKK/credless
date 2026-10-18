@@ -1,0 +1,7 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "."
+  },
+  "include": ["src/**/*.ts", "test/**/*.ts", "playwright.config.ts", "tsdown.config.ts", "vitest.config.ts"]
+}
