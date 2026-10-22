@@ -10,7 +10,8 @@ docs fixes.
 
 ```sh
 git clone https://github.com/Prathyush-KKK/credless && cd credless
-corepack enable                      # pnpm, the version package.json pins
+npm i -g corepack@latest            # Node 22 bundles corepack 0.34, which cannot start pnpm 11 or later
+corepack enable                      # pnpm, the version package.json pins (or: npm i -g pnpm@12.14.0)
 pnpm install --frozen-lockfile       # install scripts are off for every dependency (.npmrc); keep it that way
 pnpm check                           # biome, typecheck, unit tests, contract, catalog, skill copy and shape, test-code gate, org gate, action tests
 pnpm test                            # check plus the self-tests through the runner (scrub, scan and leak check run too)

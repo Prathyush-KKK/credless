@@ -207,3 +207,12 @@ One line per proposal the v0.1 tasks raised against the frozen interfaces (`docs
   0.x.
 - Yarn 4 quarantines a version for days after publish (`npmMinimalAgeGate`); the smoke pre-approves the package
   (`npmPreapprovedPackages`), and the FAQ tells Yarn users the same for a first-day install.
+
+## Before going public
+
+- A clean clone, `corepack enable` and `pnpm install` failed on Node 22: its bundled corepack (0.34) starts pnpm from
+  `bin/pnpm.cjs`, and pnpm 11 and later ship `bin/pnpm.mjs` (corepack 0.36 knows). CONTRIBUTING now updates corepack
+  first, or installs the pinned pnpm with npm. Users of the package are not affected: nothing in it runs pnpm.
+- The GitHub Action no longer runs `corepack enable`. Nothing after it called pnpm or yarn (the CLI is started with
+  `node`, Playwright with `npx --no-install`), and on Node 22 the shims it installs could shadow a pnpm the workflow
+  set up earlier and then fail to start pnpm 11 or later.

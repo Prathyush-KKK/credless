@@ -91,10 +91,6 @@ runs:
       with:
         node-version: ${{ inputs.node-version }}
 
-    - name: Enable corepack (pnpm and yarn from packageManager, when the project uses one)
-      shell: bash
-      run: corepack enable || echo 'corepack not available; using the npm on PATH'
-
     - name: Locate the installed CLI
       # The project's own copy, resolved by Node from the working directory: never `npx credless`, whose fallback
       # would fetch a package from the registry when the dependency is missing.
