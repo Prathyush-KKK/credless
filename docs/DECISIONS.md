@@ -216,3 +216,12 @@ One line per proposal the v0.1 tasks raised against the frozen interfaces (`docs
 - The GitHub Action no longer runs `corepack enable`. Nothing after it called pnpm or yarn (the CLI is started with
   `node`, Playwright with `npx --no-install`), and on Node 22 the shims it installs could shadow a pnpm the workflow
   set up earlier and then fail to start pnpm 11 or later.
+- TypeScript 6.0.3 for the workspace (was 5.9.3): typecheck and build clean, and the shipped `.d.ts` files are
+  byte-identical. TypeScript 7 was tried and not taken: it has no stable compiler API yet (tsdown warns, and the
+  declarations it emits differ), and it broke `check-tests`, which walks the AST through that API.
+- That last point was a user-facing bug: in a project with TypeScript 7 installed, `credless check-tests` crashed
+  ("Cannot read properties of undefined"). `usableTypescript()` now requires the functions and enums the AST engine
+  calls; without them the auto engine is the tokenizer (same rules, and the output says `regex engine`), and a forced
+  `--engine ts` exits 2 saying why. Checked from the packed package in a project with typescript@7.0.2.
+- Not taken now: `@napi-rs/keyring` 2.1.2 (optional, ships to users, three days old at the time; 2.1.1 stays until
+  a release has aged), Biome 2.6 (a day old), `@types/node` 26 (the types should match the Node floor, 22).

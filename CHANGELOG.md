@@ -3,13 +3,14 @@
 All notable changes to credless. The project follows [Semantic Versioning](https://semver.org); while it is 0.x, a
 minor version may change the contract, the config schema or an adapter interface, and the entry says how to move.
 
-## 0.1.0 (unreleased)
+## 0.1.0
 
 First public release.
 
 - CLI: `init`, `doctor` (with `--security` and `--offline`), `slot`, `run` (slots, run locks, `--twice` flake
   report, Docker or native), `health`, `seed`, `report` (`list`, and the latest run by default), `evidence
-  scrub|scan`, `check-tests`, `demo` and `demo --plant-secret`. `help <command>` and `<command> --help` print one
+  scrub|scan`, `check-tests` (the TypeScript AST when the project's `typescript` has a compiler API, else the same
+  rules by tokenizer, TypeScript 7 included), `demo` and `demo --plant-secret`. `help <command>` and `<command> --help` print one
   command's options and examples; a usage error is one line and a pointer; a mistyped command gets a suggestion.
 - Personas: a catalog of synthetic roles; one account per persona per parallel worker; several signed-in browsers in
   one test.

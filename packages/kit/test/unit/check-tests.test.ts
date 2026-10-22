@@ -2,8 +2,16 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import ts from 'typescript';
 import { afterEach, describe, expect, it } from 'vitest';
-import { checkTests, type Engine, listTestFiles, RULES, stripComments } from '../../src/runner/check-tests.ts';
+import {
+  checkTests,
+  type Engine,
+  listTestFiles,
+  RULES,
+  stripComments,
+  usableTypescript,
+} from '../../src/runner/check-tests.ts';
 
 const made: string[] = [];
 const tmp = () => {
@@ -130,5 +138,14 @@ describe('helpers', () => {
     expect(out).toContain('`//not a comment`');
     expect(out).toContain('"/* nope */"');
     expect(out.split('\n')).toHaveLength(2);
+  });
+
+  it('uses typescript only with its compiler API (TypeScript 7 has none yet, so the regex engine runs)', () => {
+    expect(usableTypescript(ts)).toBe(ts);
+    expect(usableTypescript({ default: ts })).toBe(ts);
+    // the shape of TypeScript 7's package as Node imports it: a version, no compiler functions
+    expect(usableTypescript({ version: '7.0.2', default: { version: '7.0.2' } })).toBeNull();
+    expect(usableTypescript({ ...ts, forEachChild: undefined })).toBeNull();
+    expect(usableTypescript(null)).toBeNull();
   });
 });

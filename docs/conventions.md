@@ -215,7 +215,7 @@ password) live in `apps/demo/src/fake-secrets.json` and are scanned for like rea
 
 Tasks never edit a `package.json`. Everything the eight tasks need is declared: runtime `zod`, `yaml`, `fflate`,
 `@axe-core/playwright`; peer `@playwright/test >=1.64 <2` (dev-pinned 1.64.1); optional `@napi-rs/keyring`,
-`playwright-ctrf-json-reporter`; dev `vitest`, `tsdown`, `typescript 5.9`, `@types/node 24`, `@biomejs/biome`,
+`playwright-ctrf-json-reporter`; dev `vitest`, `tsdown`, `typescript 6`, `@types/node 24`, `@biomejs/biome`,
 `publint`, `@arethetypeswrong/cli`; `apps/demo` declares `vitest` for its own server test. A new
 dependency is a line in `docs/DECISIONS.md` with the reason, never a silent addition. Install scripts are off (`.npmrc`, `pnpm-workspace.yaml`); a package that needs one
 is a decision, not a line.
@@ -224,8 +224,8 @@ is a decision, not a line.
 
 Node ≥ 22.18 is what the published package and the workspace declare: Node runs the sources directly because every
 `.ts` is erasable (no enums, no parameter properties, no namespaces, no `import =`) and relative imports carry the `.ts`
-extension (`rewriteRelativeImportExtensions`). Type check with TypeScript 5.9 (`pnpm typecheck`); TypeScript 7 is
-evaluated in v0.2. ESM only. Biome 2.5 formats and lints (120 columns, single quotes, trailing commas); the
+extension (`rewriteRelativeImportExtensions`). Type check with TypeScript 6 (`pnpm typecheck`); TypeScript 7 waits for a
+stable compiler API (tsdown's declarations and `check-tests` use it). ESM only. Biome 2.5 formats and lints (120 columns, single quotes, trailing commas); the
 override for `**/e2e/**`, `test/selftest/**` and `packages/kit/templates/**` forbids network and process imports and
 the globals `fetch` and `process` (the AST gate `check-tests` is the authoritative one); a `*.config.ts` in those
 directories is exempt from the override, and `check-tests` skips it in a directory walk (a config reads the harness's

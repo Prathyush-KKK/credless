@@ -234,6 +234,9 @@ async function run() {
   // bunx reads no .npmrc outside a project, and corepack fetches Yarn 4 from repo.yarnpkg.com unless given a registry
   Object.assign(env, { BUN_CONFIG_REGISTRY: registry, COREPACK_NPM_REGISTRY: registry.replace(/\/$/, '') });
   const deps = [`${NAME}@${VERSION}`, `@playwright/test@${PLAYWRIGHT}`];
+  // bunx keeps each package in $TMPDIR/bunx-<uid>-<name>@<version>, outside its cache dir: a copy left by an earlier
+  // run of this script (the same version, other bytes) fails its integrity check, so bun gets its own TMPDIR
+  const bunEnv = { ...env, TMPDIR: dir('bun-tmp') };
   const skip = (label, why) => console.log(`  skip  ${label}: ${why}`);
 
   // 3. a project's own install, each with its package manager's runner
@@ -303,8 +306,8 @@ async function run() {
     if (!has('bun', env)) skip('bun add -d', 'bun is not installed');
     else {
       const p = project('bun', registry);
-      if (installCheck('bun add -d', 'bun', ['add', '-d', ...deps], p, env)) {
-        demoCheck('bun add -d', 'bun', ['x', NAME, 'demo'], p, env);
+      if (installCheck('bun add -d', 'bun', ['add', '-d', ...deps], p, bunEnv)) {
+        demoCheck('bun add -d', 'bun', ['x', NAME, 'demo'], p, bunEnv);
       }
     }
   }
@@ -337,7 +340,7 @@ async function run() {
     else {
       const cwd = dir('projects', 'bunx-cwd');
       fs.writeFileSync(path.join(cwd, '.npmrc'), `registry=${registry}\n`);
-      demoCheck(`bunx ${NAME}@${VERSION}`, 'bun', ['x', `${NAME}@${VERSION}`, 'demo'], cwd, env);
+      demoCheck(`bunx ${NAME}@${VERSION}`, 'bun', ['x', `${NAME}@${VERSION}`, 'demo'], cwd, bunEnv);
     }
   }
 }

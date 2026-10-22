@@ -121,10 +121,40 @@ export function listTestFiles(targets: string[], cwd = process.cwd()): string[] 
 
 type Ts = typeof import('typescript');
 
+/** What the AST engine calls. TypeScript 7 ships no stable compiler API yet: a copy without these counts as absent. */
+const TS_FUNCTIONS = [
+  'createSourceFile',
+  'forEachChild',
+  'isCallExpression',
+  'isElementAccessExpression',
+  'isExportDeclaration',
+  'isIdentifier',
+  'isImportDeclaration',
+  'isMethodDeclaration',
+  'isNamedImports',
+  'isNewExpression',
+  'isPropertyAccessExpression',
+  'isPropertyAssignment',
+  'isShorthandPropertyAssignment',
+  'isStringLiteral',
+  'isStringLiteralLike',
+] as const;
+const TS_ENUMS = ['ScriptKind', 'ScriptTarget', 'SyntaxKind'] as const;
+
+/** The module as the AST engine's `ts`, or null when it lacks the compiler API (absent, or TypeScript 7). */
+export function usableTypescript(mod: unknown): Ts | null {
+  const m = mod as ({ default?: unknown } & Record<string, unknown>) | null | undefined;
+  const ts = (m?.default ?? m) as Record<string, unknown> | null | undefined;
+  if (!ts) return null;
+  const complete =
+    TS_FUNCTIONS.every((name) => typeof ts[name] === 'function') &&
+    TS_ENUMS.every((name) => typeof ts[name] === 'object' && ts[name] !== null);
+  return complete ? (ts as unknown as Ts) : null;
+}
+
 async function loadTypescript(): Promise<Ts | null> {
   try {
-    const mod = (await import('typescript')) as unknown as { default?: Ts } & Ts;
-    return mod.default ?? mod;
+    return usableTypescript(await import('typescript'));
   } catch {
     return null;
   }
@@ -355,7 +385,11 @@ function checkWithRegex(file: string, text: string): Finding[] {
 export async function checkTests(targets: string[], options: CheckOptions = {}): Promise<CheckResult> {
   const files = listTestFiles(targets, options.cwd);
   const ts = options.engine === 'regex' ? null : await loadTypescript();
-  if (options.engine === 'ts' && !ts) throw new Error('the typescript package is not installed');
+  if (options.engine === 'ts' && !ts) {
+    throw new Error(
+      'the ts engine needs the typescript package with its compiler API: it is not installed, or it is TypeScript 7, which has none yet (--engine regex works without it)',
+    );
+  }
   const findings: Finding[] = [];
   for (const file of files) {
     const text = fs.readFileSync(file, 'utf8');
