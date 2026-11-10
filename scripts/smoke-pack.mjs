@@ -237,6 +237,22 @@ async function run() {
     echoed ? '(output withheld)' : `${list.all}\n${latest.all.slice(0, 2000)}`,
   );
 
+  // A stand-in judge (full marks, quoting the answer) shows the judge stage runs from the installed package.
+  const judgeScript = path.join(project, 'stand-in-judge.mjs');
+  fs.writeFileSync(
+    judgeScript,
+    "let p='';process.stdin.on('data',c=>p+=c).on('end',()=>{const a=(/ANSWER:\\n([\\s\\S]*?)\\n\\nFACTS:/.exec(p)||[])[1]||'';" +
+      "const q=a.trim().split(/\\s+/).slice(0,6).join(' ');const c=[...p.matchAll(/^- ([a-z0-9-]+): /gm)].map(m=>m[1]);" +
+      "process.stdout.write(JSON.stringify({scores:c.map(x=>({criterion:x,score:2,quote:q,why:'stand-in'}))}))});\n",
+  );
+  const judged = cli(['demo', '--judge', JSON.stringify([process.execPath, judgeScript])]);
+  check(
+    `${NAME} demo --judge <a stand-in judge>: the assistant's answer is scored and passes`,
+    judged.status === 0 && judged.all.includes('judge: 1 recorded answer(s): 1 pass'),
+    judged.all,
+    judged.seconds,
+  );
+
   const leftovers = fs.readdirSync(os.tmpdir()).filter((n) => n.startsWith(`${NAME}-demo-`));
   check('the demo removed its temp project copies and key dirs', leftovers.length === 0, leftovers.join('\n'));
 

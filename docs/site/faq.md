@@ -28,7 +28,7 @@ sandbox you trust; the kit inherits it.
 
 Because a per-browser CONNECT proxy covers
 browsers, not Node. v0.1 adds a lint gate that keeps network modules and bare `fetch` out of test code and an advisory
-shim that routes Node's `fetch` and sockets through the policy; v0.2's `run --isolate` puts the whole run in a network
+shim that routes Node's `fetch` and sockets through the policy; v0.3's `run --isolate` puts the whole run in a network
 namespace whose only route is the egress proxy. Until then the threat model says "not isolated" and so does `doctor`.
 
 ### Why does a leaked secret fail the run even though it was scrubbed?

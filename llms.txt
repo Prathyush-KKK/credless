@@ -6,7 +6,7 @@ How it works, in one paragraph: synthetic personas (owner, member, guest, ...) g
 
 Key commands: `npx credless demo` (bundled demo app, no setup), `npx credless demo --plant-secret` (proves a leaked value fails the run), `npx credless init`, `npx credless doctor --target <t>`, `npx credless run --target <t>`.
 
-Key test API: `import { test, expect, about } from 'credless'`; fixtures `personas` (`personas.open('owner', 'member')` returns signed-in browser sessions), `control` (one-call state setup through the test API), `guard`, `shot`, `sensitive`.
+Key test API: `import { test, expect, about, judgeAnswer } from 'credless'`; fixtures `personas` (`personas.open('owner', 'member')` returns signed-in browser sessions), `control` (one-call state setup through the test API), `guard`, `shot`, `sensitive`. `judgeAnswer({ persona, question, answer, facts, must, mustNot })` records an answer a model wrote: markers are checked in the test, a rubric is scored after the run by a judge command (`run --judge '["claude","-p"]'`), and a score counts only if its quote is in the answer. Tests tagged `@draft` run only with `run --drafts` and never fail the run.
 
 ## Docs
 
@@ -18,6 +18,7 @@ Key test API: `import { test, expect, about } from 'credless'`; fixtures `person
 - [Backend brief](https://github.com/Prathyush-KKK/credless/blob/main/contract/BACKEND-BRIEF.md): what a backend implements (seven routes, five locks), with notes for Spring Boot, Rails, Django, Laravel, Next.js
 - [Core contract (OpenAPI 3.1)](https://github.com/Prathyush-KKK/credless/blob/main/contract/core.openapi.yaml)
 - [Evidence](https://github.com/Prathyush-KKK/credless/blob/main/docs/site/evidence.md): the report folder, SUMMARY.md, triage
+- [Judging AI answers](https://github.com/Prathyush-KKK/credless/blob/main/docs/site/judging.md): judgeAnswer(), markers, the rubric, the quote check, judge commands
 
 ## Agents
 

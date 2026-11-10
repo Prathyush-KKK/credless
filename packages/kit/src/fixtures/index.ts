@@ -42,6 +42,7 @@ import {
   CORE_ROUTES,
   type ControlOptions,
   DEFAULTS,
+  DRAFT_TAG,
   ENV,
   type GuardKnobs,
   type GuardListName,
@@ -171,7 +172,19 @@ export type KitTest = TestType<
   PlaywrightWorkerArgs & PlaywrightWorkerOptions & KitWorkerFixtures
 >;
 
-export const test: KitTest = base.extend<KitTestFixtures & KitSelfTestOptions, KitWorkerFixtures>({
+export const test: KitTest = base.extend<KitTestFixtures & KitSelfTestOptions & { _drafts: void }, KitWorkerFixtures>({
+  // A test tagged `@draft` runs only with `run --drafts`; SUMMARY.md lists drafts apart and never counts them.
+  _drafts: [
+    // biome-ignore lint/correctness/noEmptyPattern: Playwright reads the fixture's dependencies from this pattern
+    async ({}, use, testInfo) => {
+      if (testInfo.tags.includes(DRAFT_TAG) && process.env[ENV.DRAFTS] !== '1') {
+        testInfo.skip(true, `a draft: \`${CLI_NAME} run --drafts\` runs it`);
+      }
+      await use();
+    },
+    { auto: true },
+  ],
+
   kit: [
     // biome-ignore lint/correctness/noEmptyPattern: Playwright reads the fixture's dependencies from this pattern
     async ({}, use, workerInfo) => {

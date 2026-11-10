@@ -125,7 +125,8 @@ async function pipeline(
   }
   const result = summary(dir, { flakes });
   log(`summary: ${path.join(dir, EVIDENCE.summary)} (${result.verdict.toUpperCase()})`);
-  const code = result.verdict === 'pass' && suiteExit === 0 && leaked === 0 ? EXIT.PASS : EXIT.FAIL;
+  // The verdict holds the suite's exit already (and the one exception to it: a failing draft).
+  const code = result.verdict === 'pass' && leaked === 0 ? EXIT.PASS : EXIT.FAIL;
   recordExitCode(dir, code);
   return code;
 }

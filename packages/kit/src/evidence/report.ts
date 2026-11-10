@@ -8,8 +8,10 @@ import fs from 'node:fs';
 import { createRequire } from 'node:module';
 import os from 'node:os';
 import path from 'node:path';
+import { JUDGE, type JudgeResults, judgeLine } from '../judge/judge.ts';
 import {
   type CoverageRow,
+  DRAFT_TAG,
   ENV,
   EVIDENCE,
   EXIT,
@@ -54,6 +56,8 @@ interface JsonTest {
 interface JsonSpec {
   title?: string;
   file?: string;
+  /** the test's tags, as the JSON report writes them: without the `@` (`draft`) */
+  tags?: string[];
   tests?: JsonTest[];
 }
 interface JsonSuite {
@@ -84,6 +88,8 @@ export interface TestRow {
   project: string;
   /** expected | unexpected | flaky | skipped */
   status: string;
+  /** as the JSON report writes them (`draft`); see {@link isDraft} */
+  tags: string[];
   expectedStatus: string;
   annotations: JsonAnnotation[];
   duration: number;
@@ -136,6 +142,7 @@ export function testsOf(report: JsonReport | null): TestRow[] {
           title: spec.title ?? '',
           project: t.projectName ?? '',
           status: t.status ?? '',
+          tags: spec.tags ?? [],
           expectedStatus: t.expectedStatus ?? '',
           annotations: t.annotations ?? [],
           duration: last?.duration ?? 0,
@@ -157,6 +164,12 @@ export function testsOf(report: JsonReport | null): TestRow[] {
   };
   for (const suite of report?.suites ?? []) walk(suite, suite.file);
   return out;
+}
+
+/** Playwright's JSON report keeps a tag without its `@` (`draft`); the test sees it with one (`@draft`). */
+export function isDraft(t: Pick<TestRow, 'tags'>): boolean {
+  const bare = DRAFT_TAG.slice(1);
+  return t.tags.some((tag) => tag === DRAFT_TAG || tag === bare);
 }
 
 export function markOf(t: Pick<TestRow, 'status' | 'expectedStatus'>): Mark {
@@ -332,7 +345,8 @@ export function coverage(dir: string): { rows: CoverageRow[]; file: string } {
     notes: Record<string, string>;
   }
   const rows = new Map<string, Row>();
-  for (const t of testsOf(report)) {
+  // a draft is never coverage, whatever its outcome
+  for (const t of testsOf(report).filter((t) => !isDraft(t))) {
     const key = `${t.file}::${t.title}`;
     const row = rows.get(key) ?? { file: t.file, title: t.title, cells: {}, outcomes: {}, notes: {} };
     row.cells[t.project] = markOf(t);
@@ -483,15 +497,23 @@ export interface SummaryOptions {
 
 /**
  * SUMMARY.md and the {@link Summary} it is rendered from. PASS needs proof the suite ran: results with at least one
- * executed test, no run errors, a zero suite exit, a clean scan and no secret value anywhere in the evidence (even a
- * redacted one means something leaks it). A finding that survived the quarantine makes the verdict `unsafe`.
+ * executed test, no run errors, a zero suite exit, a clean scan, no secret value anywhere in the evidence (even a
+ * redacted one means something leaks it) and no judged answer that failed (or, with the judge's gate on, that is
+ * unsure or unjudged). A finding that survived the quarantine makes the verdict `unsafe`. Drafts (`@draft`) are
+ * listed apart and count for nothing: a failing draft is the only failure a non-zero suite exit may stand for.
  */
 export function summary(dir: string, options: SummaryOptions = {}): Summary {
   const report = readResults(dir);
   const run = readJsonOr<Partial<RunMeta>>(path.join(dir, EVIDENCE.run), {});
   const scan = readJsonOr<Partial<ScanFile> | null>(path.join(dir, EVIDENCE.scan), null);
   const suite = readJsonOr<{ exitCode?: number } | null>(path.join(dir, EVIDENCE.suite), null);
-  const all = testsOf(report);
+  const everything = testsOf(report);
+  const all = everything.filter((t) => !isDraft(t));
+  const drafts = everything.filter(isDraft);
+  const judged = readJsonOr<JudgeResults | null>(path.join(dir, JUDGE.results), null);
+  const casesDir = path.join(dir, JUDGE.cases);
+  const unsettled =
+    !judged && fs.existsSync(casesDir) ? fs.readdirSync(casesDir).filter((f) => f.endsWith('.json')).length : 0;
   const projects = projectsOf(report);
   const blank = (): Record<Mark, number> => ({ P: 0, F: 0, X: 0, K: 0, S: 0 });
   const per = new Map<string, Record<Mark, number>>(projects.map((p) => [p, blank()]));
@@ -501,6 +523,8 @@ export function summary(dir: string, options: SummaryOptions = {}): Summary {
     per.set(t.project, counts);
   }
   const failed = all.filter((t) => markOf(t) === 'F' || markOf(t) === 'K');
+  const draftsFailed = drafts.filter((t) => markOf(t) === 'F' || markOf(t) === 'K');
+  const draftsRan = drafts.filter((t) => markOf(t) !== 'S');
   const hc = hashCheck(dir);
   const sheets = sheetsOf(dir);
   const ran = report !== null && all.length > 0;
@@ -509,6 +533,9 @@ export function summary(dir: string, options: SummaryOptions = {}): Summary {
   const left = scan?.leftAfterRemoval?.length ?? 0;
   const runErrors = report?.errors ?? [];
   const unsafe = left > 0;
+  const suiteExit = suite?.exitCode ?? 0;
+  // Playwright exits 1 for a failing draft too; with no other failure and no run error, that exit is the drafts'.
+  const suiteOk = suiteExit === 0 || (suiteExit === 1 && failed.length === 0 && draftsFailed.length > 0);
   const ok =
     ran &&
     executed > 0 &&
@@ -516,7 +543,8 @@ export function summary(dir: string, options: SummaryOptions = {}): Summary {
     !unsafe &&
     leaked === 0 &&
     runErrors.length === 0 &&
-    (suite?.exitCode ?? 0) === 0;
+    suiteOk &&
+    (judged?.ok ?? true);
   const verdict: RunVerdict = unsafe ? 'unsafe' : ok ? 'pass' : 'fail';
   const exitCode = unsafe ? EXIT.EVIDENCE_UNSAFE : ok ? EXIT.PASS : EXIT.FAIL;
   const runId = run.runId ?? path.basename(dir);
@@ -541,7 +569,15 @@ export function summary(dir: string, options: SummaryOptions = {}): Summary {
     leaked
       ? `- LEAK: a secret value (the runner key, the sign-in password or another registered secret) was in ${(scan?.secretValuesIn ?? []).join(', ') || 'the evidence'} (${leaked} time(s)); it is redacted in what was kept, but a code path leaks it: fix that first`
       : null,
-    `- Suite: ${suiteLine}; exit code ${suite?.exitCode ?? 'unknown'}`,
+    `- Suite: ${suiteLine}; exit code ${suite?.exitCode ?? 'unknown'}${suiteExit !== 0 && suiteOk ? ' (a failing draft: it does not count)' : ''}`,
+    judged
+      ? `- Answers a model wrote: ${judgeLine(judged)} (${JUDGE.report})`
+      : unsettled
+        ? `- Answers a model wrote: ${unsettled} recorded, not settled: \`run\` could not judge them; \`credless judge ${runId}\` does`
+        : null,
+    drafts.length
+      ? `- Drafts: ${drafts.length} (${draftsRan.length ? `${draftsRan.length} ran, ${draftsFailed.length} failed` : 'not run'}); never counted`
+      : null,
     '',
     '## Totals',
     '',
@@ -576,6 +612,41 @@ export function summary(dir: string, options: SummaryOptions = {}): Summary {
       lines.push(`| ${esc(t.title)} | ${esc(t.project)} | ${esc(first)} | ${esc(failures[i]?.shot ?? '')} | |`);
     });
     lines.push('');
+  }
+  if (judged && judged.cases.some((c) => c.status !== 'pass')) {
+    lines.push(
+      '## Answers a model wrote',
+      '',
+      judged.gate
+        ? 'The gate is on: an answer that failed, or that no judge could score, fails the run.'
+        : 'A failed answer fails the run; unsure and unjudged ones are listed (`--judge-gate` makes them fail it too).',
+      '',
+      '| Answer | Test | Project | Outcome | Why |',
+      '|---|---|---|---|---|',
+      ...judged.cases
+        .filter((c) => c.status !== 'pass')
+        .map(
+          (c) => `| ${esc(c.id)} | ${esc(c.test)} | ${esc(c.project)} | ${c.status} | ${esc(c.problems.join('; '))} |`,
+        ),
+      '',
+    );
+  }
+  if (drafts.length) {
+    lines.push('## Drafts (never counted)', '');
+    if (!draftsRan.length) lines.push(`${drafts.length} draft test(s), not run: \`run --drafts\` runs them.`, '');
+    else {
+      lines.push(
+        'A draft that passes twice in a row is ready to lose its `@draft` tag and count.',
+        '',
+        '| Test | Project | Outcome | First error |',
+        '|---|---|---|---|',
+        ...drafts.map((t) => {
+          const first = t.errors.find((l) => /Error|Expected|Received|Timed out/.test(l)) ?? t.errors[0] ?? '';
+          return `| ${esc(t.title)} | ${esc(t.project)} | ${outcomeOf(t)} | ${esc(first)} |`;
+        }),
+        '',
+      );
+    }
   }
   const seen = hostsOf(all);
   if (seen.size) {
@@ -635,6 +706,7 @@ export function summary(dir: string, options: SummaryOptions = {}): Summary {
     `- ${rawParts.join('; ')}`,
     exists(EVIDENCE.flakes) ? `- Double run: ${EVIDENCE.flakes}` : null,
     exists(EVIDENCE.quarantined) ? `- Removed by the secret scan: ${EVIDENCE.quarantined}` : null,
+    judged ? `- Answers a model wrote, with the judge's quotes: ${JUDGE.report}` : null,
     '',
   );
   fs.writeFileSync(path.join(dir, EVIDENCE.summary), `${lines.filter((l) => l !== null).join('\n')}\n`);
@@ -665,5 +737,7 @@ export function summary(dir: string, options: SummaryOptions = {}): Summary {
     durationMs: Math.round(durationMs),
   };
   if (options.flakes) result.flakes = options.flakes;
+  if (judged) result.judge = { counts: judged.counts, ok: judged.ok, gate: judged.gate };
+  if (drafts.length) result.drafts = { total: drafts.length, ran: draftsRan.length, failed: draftsFailed.length };
   return result;
 }

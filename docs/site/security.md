@@ -15,9 +15,9 @@ the self-tests check each layer and `credless doctor --security` tells you which
 [GitHub Security Advisories](https://github.com/Prathyush-KKK/credless/security/advisories/new). Acknowledgement in
 3 business days, triage in 7, coordinated disclosure in 90 days, credit by default, no bounty.
 
-**Threat model.** Thirteen rows in SECURITY.md, each with the mitigation in v0.1, the gap and the planned fix. The
+**Threat model.** Thirteen rows in SECURITY.md, each with the mitigation that ships, the gap and the planned fix. The
 ones to know: the Node worker is not network-isolated in native mode (lint gate and advisory shim now; `--isolate`
-in v0.2); the broker lives in Playwright's main process (own process in v0.2); WebKit WebRTC can send UDP around the
+in v0.3); the broker lives in Playwright's main process (own process in v0.3); WebKit WebRTC can send UDP around the
 proxy (`--isolate` closes it); the CI key is an environment secret, masked not hidden (OIDC in v0.3); the scan cannot
 read images; prompt injection through evidence can be bounded, not closed.
 

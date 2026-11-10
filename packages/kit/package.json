@@ -1,6 +1,6 @@
 {
   "name": "credless",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Signed-in, multi-user Playwright end-to-end tests that AI coding agents (Claude Code, Cursor, Codex) can run without your credentials: personas, a key broker, an egress guard and leak-proof evidence.",
   "keywords": [
     "playwright",

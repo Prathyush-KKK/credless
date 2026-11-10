@@ -21,6 +21,18 @@ export const SENTINEL_HTTP = 'http://127.0.0.1:4319';
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
 
 /** Parse a Cookie header into names and values. */
+/**
+ * The demo's assistant: it stands in for a model that answers from the person's documents. Its answers are written in
+ * prose, so a test checks them as a model's answer is checked: markers now, a rubric after the run (judgeAnswer).
+ */
+function assistantAnswer(state: DemoState, handle: string): string {
+  const docs = state.visibleDocuments(handle);
+  if (!docs.length)
+    return "I can't find any documents you can see yet. Once a workspace you are in has one, ask again.";
+  const listed = docs.map((d) => `"${d.title}" (in ${state.workspace(d.workspaceId)?.name ?? 'a workspace'})`);
+  return `You can see ${docs.length} document${docs.length === 1 ? '' : 's'}: ${listed.join(', ')}. I only answer from documents in the workspaces you belong to.`;
+}
+
 export function parseCookies(req: IncomingMessage): Record<string, string> {
   const out: Record<string, string> = {};
   for (const part of (req.headers.cookie ?? '').split(';')) {
@@ -252,6 +264,19 @@ export function createAppApi(state: DemoState): (req: IncomingMessage, res: Serv
         if (!user) return;
         const results = state.search(user.handle, ctx.url.searchParams.get('q') ?? '');
         send(ctx, 200, { results: results.map((d) => ({ id: d.id, title: d.title, workspaceId: d.workspaceId })) });
+      },
+    ],
+
+    // -- the assistant ----------------------------------------------------------------------------------------------
+    [
+      'POST',
+      '/api/assistant',
+      (ctx) => {
+        const user = signedIn(ctx);
+        if (!user) return;
+        const question = isRecord(ctx.body) && typeof ctx.body.question === 'string' ? ctx.body.question.trim() : '';
+        if (!question) return fail(ctx, 400, 'no-question', 'Ask a question first.');
+        send(ctx, 200, { answer: assistantAnswer(state, user.handle) });
       },
     ],
 

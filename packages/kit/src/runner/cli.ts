@@ -7,6 +7,8 @@ import path from 'node:path';
 import readline from 'node:readline/promises';
 import { pathToFileURL } from 'node:url';
 import { CLI_NAME, KIT_NAME, REPO_URL } from '../brand.ts';
+import { judgeLine } from '../judge/judge.ts';
+import { judgeStage, resolveJudgeCommand } from '../judge/stage.ts';
 import { DEFAULTS, EVIDENCE, EXIT, type ExitCode, PATTERNS } from '../types.ts';
 import { checkTests, type Engine, formatFinding } from './check-tests.ts';
 import { DEMO_EVIDENCE_DIR, demo } from './demo.ts';
@@ -107,6 +109,19 @@ export function parseArgs(argv: readonly string[], spec: ArgSpec = {}): ParsedAr
 
 const isError = (p: ParsedArgs | ArgError): p is ArgError => 'error' in p;
 
+/** The judge flags every command that runs or judges a suite takes. */
+const JUDGE_FLAGS = { booleans: ['no-judge', 'judge-gate'], strings: ['judge'] } as const;
+
+/** `--no-judge`, `--judge <json>`, or this machine's judge file; an error names what is wrong. */
+function judgeFrom(p: ParsedArgs, env: NodeJS.ProcessEnv): { command: string[] | null } | ArgError {
+  const choice = resolveJudgeCommand({
+    flag: p.flags.judge as string | undefined,
+    off: Boolean(p.flags['no-judge']),
+    env,
+  });
+  return 'error' in choice ? { error: choice.error } : { command: choice.command };
+}
+
 function integer(value: string | boolean | undefined, name: string): number | undefined | ArgError {
   if (value === undefined) return undefined;
   if (typeof value !== 'string' || !/^\d{1,3}$/.test(value)) return { error: `--${name} must be a number` };
@@ -128,12 +143,13 @@ interface CommandHelp {
 /** Every public command, in the order the usage lists them. `help <command>` and `<command> --help` print one. */
 export const COMMANDS: Readonly<Record<string, CommandHelp>> = {
   demo: {
-    usage: 'demo [--headed] [--plant-secret] [--reports-dir d] [--demo-dir d] [--target t]',
+    usage: 'demo [--headed] [--plant-secret] [--judge <json argv>] [--reports-dir d] [--demo-dir d] [--target t]',
     summary: 'run the bundled demo app and its suite of signed-in browsers; nothing to set up',
     detail: `The evidence lands in ./${KIT_NAME}-demo/reports/<run id>/ (SUMMARY.md and a contact sheet per browser).
 --plant-secret adds one spec that writes the demo's stand-in password into the test output on purpose; the command
-passes only when the run fails with a LEAK, which proves the evidence pipeline catches it.`,
-    examples: [`${CLI_NAME} demo`, `${CLI_NAME} demo --plant-secret`, `${CLI_NAME} demo --headed`],
+passes only when the run fails with a LEAK, which proves the evidence pipeline catches it. The demo's assistant answer
+is checked by its markers in the test; --judge scores it against the rubric too (see \`${CLI_NAME} help judge\`).`,
+    examples: [`${CLI_NAME} demo`, `${CLI_NAME} demo --plant-secret`, `${CLI_NAME} demo --judge '["claude","-p"]'`],
   },
   init: {
     usage: 'init [dir] [--yes] [--target t] [--web url] [--api url]',
@@ -161,14 +177,17 @@ are active on this machine. Exit 2 when a check fails.`,
   },
   run: {
     usage:
-      'run --target t [--slot x] [--workers n] [--twice] [--project p] [--wait m] [--docker|--native] [-- <playwright args>]',
+      'run --target t [--slot x] [--workers n] [--twice] [--drafts] [--judge <json argv> | --no-judge] [--judge-gate] [--project p] [--wait m] [--docker|--native] [-- <playwright args>]',
     summary: 'run the suite against a target; refuses production and unknown targets',
     detail: `Reads the runner key from the config's key source, hands it to the broker, runs Playwright, then scrubs and scans
 the evidence before keeping it in reports/<run id>/. --twice runs the suite twice and writes FLAKES.md instead of
-retrying. Anything after -- goes to Playwright.`,
+retrying. --drafts also runs the tests tagged @draft, listed apart and never counted. Answers recorded with
+judgeAnswer() are scored after the suite by the judge command (--judge, or this machine's judge file); --judge-gate
+fails the run on an answer nobody could score. Anything after -- goes to Playwright.`,
     examples: [
       `${CLI_NAME} run --target staging`,
       `${CLI_NAME} run --target staging --twice`,
+      `${CLI_NAME} run --target staging --drafts --judge '["claude","-p"]'`,
       `${CLI_NAME} run --target staging -- --grep "removed member"`,
     ],
   },
@@ -181,6 +200,19 @@ retrying. Anything after -- goes to Playwright.`,
     usage: 'seed --target t [--slot x] [--workers n]',
     summary: "create and reset the persona accounts of this machine's slot ahead of a run",
     examples: [`${CLI_NAME} seed --target staging --workers 4`],
+  },
+  judge: {
+    usage: 'judge <run id> [--judge <json argv> | --no-judge] [--judge-gate]',
+    summary: 'score the answers a model wrote that a run recorded, again or for the first time',
+    detail: `A test records an answer with judgeAnswer(): its markers are checked at once, and its rubric is scored after
+the suite. The judge is a command given as a JSON argv (--judge, or the file \`${KIT_NAME}\` keeps in your config
+directory, ~/.config/${KIT_NAME}/judge) that reads the prompt on stdin and prints one JSON verdict; or an agent that
+writes judge/verdicts/<answer>.json. A score counts only when its quote is in the answer. Writes JUDGE.md; exit 1
+when an answer failed (or, with --judge-gate, when one is unsure or unjudged).`,
+    examples: [
+      `${CLI_NAME} judge 20261110T101500Z-a1b2`,
+      `${CLI_NAME} judge 20261110T101500Z-a1b2 --judge '["claude","-p"]'`,
+    ],
   },
   report: {
     usage: 'report [list | summary [run id] | open [run id] | compare <run id> <run id>]',
@@ -510,11 +542,13 @@ export async function main(argv: readonly string[] = process.argv.slice(2), io: 
 
     case 'run': {
       const p = parseArgs(rest, {
-        booleans: ['twice', 'docker', 'native', 'isolate'],
-        strings: ['target', 'slot', 'workers', 'project', 'wait', ...COMMON],
+        booleans: ['twice', 'docker', 'native', 'isolate', 'drafts', ...JUDGE_FLAGS.booleans],
+        strings: ['target', 'slot', 'workers', 'project', 'wait', ...JUDGE_FLAGS.strings, ...COMMON],
         loose: true,
       });
       if (isError(p)) return usage(p.error);
+      const judged = judgeFrom(p, env);
+      if ('error' in judged) return usage(judged.error);
       if (!p.flags.target) return usage('run needs --target <name>');
       if (p.flags.docker && p.flags.native) return usage('--docker and --native exclude each other');
       const workers = integer(p.flags.workers, 'workers');
@@ -531,9 +565,36 @@ export async function main(argv: readonly string[] = process.argv.slice(2), io: 
         project: p.flags.project as string | undefined,
         waitMinutes: wait,
         playwrightArgs: p.passthrough,
+        drafts: Boolean(p.flags.drafts),
+        judge: judged.command,
+        judgeGate: Boolean(p.flags['judge-gate']),
         configPath: p.flags.config as string | undefined,
         ...common,
       });
+    }
+
+    case 'judge': {
+      const p = parseArgs(rest, { booleans: [...JUDGE_FLAGS.booleans], strings: [...JUDGE_FLAGS.strings, ...COMMON] });
+      if (isError(p)) return usage(p.error);
+      const target = p.positionals[0];
+      if (!target || p.positionals.length > 1) return usage('judge takes one run id or report folder');
+      const judged = judgeFrom(p, env);
+      if ('error' in judged) return usage(judged.error);
+      const runDir = await reportDirFor(target, cwd, p.flags.config as string | undefined);
+      if (!fs.existsSync(runDir)) return usage(`no run at ${runDir}`);
+      const results = await judgeStage({
+        runDir,
+        command: judged.command,
+        gate: Boolean(p.flags['judge-gate']),
+        env,
+        log: say,
+      });
+      if (!results) {
+        out.write(`no answers were recorded in ${runDir}\n`);
+        return EXIT.PASS;
+      }
+      out.write(`${judgeLine(results)}\n  ${path.join(runDir, 'JUDGE.md')}\n`);
+      return results.ok ? EXIT.PASS : EXIT.FAIL;
     }
 
     case 'slot': {
@@ -699,11 +760,15 @@ export async function main(argv: readonly string[] = process.argv.slice(2), io: 
 
     case 'demo': {
       const p = parseArgs(rest, {
-        booleans: ['headed', 'plant-secret'],
-        strings: ['demo-dir', 'target', 'reports-dir'],
+        booleans: ['headed', 'plant-secret', ...JUDGE_FLAGS.booleans],
+        strings: ['demo-dir', 'target', 'reports-dir', ...JUDGE_FLAGS.strings],
       });
       if (isError(p)) return usage(p.error);
+      const judged = judgeFrom(p, env);
+      if ('error' in judged) return usage(judged.error);
       return demo({
+        judge: judged.command,
+        judgeGate: Boolean(p.flags['judge-gate']),
         headed: Boolean(p.flags.headed),
         plantSecret: Boolean(p.flags['plant-secret']),
         reportsDir: p.flags['reports-dir'] as string | undefined,
@@ -714,7 +779,7 @@ export async function main(argv: readonly string[] = process.argv.slice(2), io: 
     }
 
     case 'mcp':
-      return usage('mcp lands in v0.2');
+      return usage('mcp lands in v0.3');
 
     // Hidden: the processes `run` starts (docs in suite.ts).
     case '__suite':

@@ -8,7 +8,7 @@
 // (Node 24+; the parent must set that variable, because Node reads it before any `--import` runs).
 //
 // It is advisory: code that reaches `process.binding`, a native addon or a child process is not stopped. The lint
-// gate (`check-tests`) and the canary are the layers that make such code visible; `run --isolate` (v0.2) is the one
+// gate (`check-tests`) and the canary are the layers that make such code visible; `run --isolate` (v0.3) is the one
 // that makes it impossible. The file imports nothing but Node built-ins and the brand, so it loads before anything.
 import dgram from 'node:dgram';
 import net from 'node:net';

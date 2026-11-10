@@ -46,6 +46,9 @@ export interface DemoInput {
   stderr?: NodeJS.WritableStream;
   /** seconds to wait for the ready line (default 30) */
   readyTimeoutSeconds?: number;
+  /** the judge command for the demo's recorded answers (`run --judge`); null or absent: listed unjudged */
+  judge?: readonly string[] | null;
+  judgeGate?: boolean;
 }
 
 /**
@@ -369,6 +372,8 @@ export async function demo(input: DemoInput = {}): Promise<ExitCode> {
       stdout: out,
       stderr: err,
       playwrightArgs: input.headed ? ['--headed'] : [],
+      judge: input.judge ?? null,
+      judgeGate: input.judgeGate,
       onResult: (r) => {
         result = r;
       },

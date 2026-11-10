@@ -74,7 +74,7 @@ same server-side session record, so the app boots signed in with no storage touc
 called by both; never by writing a session row by hand.
 
 - **TTL at most one hour** (`Max-Age ≤ 3600`, `expiresAt` to match), shorter if the app allows it (20–30 minutes is
-  comfortable for most suites; the kit will re-mint on expiry from v0.2).
+  comfortable for most suites; the kit will re-mint on expiry from v0.3).
 - **Tag the session with `runId`** so `cleanupRun` can revoke every session the run minted.
 - **No side effects a real login has for a person:** no login mail, push, analytics or audit event in the user's
   own history; the test API's audit line is the record.

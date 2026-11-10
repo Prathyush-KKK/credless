@@ -344,7 +344,7 @@ export async function doctor(input: DoctorInput = {}): Promise<DoctorReport> {
     const on = (m: string) => lines.push(`  on    ${m}`);
     const off = (m: string) => lines.push(`  off   ${m}`);
     on(
-      'broker: the runner key stays in the Playwright main process; workers hold a per-run token (inside the test process tree until v0.2)',
+      'broker: the runner key stays in the Playwright main process; workers hold a per-run token (inside the test process tree until v0.3)',
     );
     on('egress proxy per browser context: judged by host before DNS; private ranges refused on remote targets');
     on(`canary: every context must reach ${DEFAULTS.canaryHost} through its own proxy, or its test fails`);
@@ -354,7 +354,7 @@ export async function doctor(input: DoctorInput = {}): Promise<DoctorReport> {
     if (supportsTraceSecrets(pwVersion))
       on(`trace secrets: Playwright ${pwVersion} renders known secrets as <secret> in traces`);
     else off(`trace secrets: needs Playwright 1.65 (installed: ${pwVersion ?? 'none'}); the scrub covers it`);
-    off('docker isolate: not available in v0.1 (run --isolate lands in v0.2)');
+    off('docker isolate: not available yet (run --isolate lands in v0.3)');
   }
 
   lines.push('');

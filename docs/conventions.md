@@ -36,11 +36,12 @@ the import specifiers inside the templates), `plugins/credless/` (the folder, `p
 | `CREDLESS_EVIDENCE_KEY` | CLI (random per run) | fixtures, post-run | HMAC key for the list of codes to scrub; never written |
 | `CREDLESS_SCRUB_VALUES_FILE` | CLI | post-run (read once, deleted) | NUL-separated secret values to scrub by value |
 | `CREDLESS_WORKERS` | CLI (`--workers`) | Playwright config | worker count |
+| `CREDLESS_DRAFTS` | CLI (`--drafts`) | the test fixtures | `1` runs the tests tagged `@draft`; otherwise they are skipped. A failing draft never fails the run |
 | `CREDLESS_TRACE` | person | Playwright config | `off`, `retain-on-failure` (default), `on` |
 | `CREDLESS_GUARD_OUTSIDE` | person | guard | `fail` (default) or `note` |
 | `CREDLESS_A11Y` | person | fixtures | `gate` makes serious/critical axe findings fail |
 | `CREDLESS_WEB_URL`, `CREDLESS_API_URL` | person | config loader | origin overrides; must pass the same checks |
-| `CREDLESS_WORKER_PROXY_URL` | global setup (`loopback`); `run` in v0.2 (a URL) | the worker shim | unset or `off`: inert; `loopback`: workers may dial loopback only; a URL: that proxy too, published as `HTTP(S)_PROXY`. A person sets `off` to diagnose a false positive |
+| `CREDLESS_WORKER_PROXY_URL` | global setup (`loopback`); `run` in v0.3 (a URL) | the worker shim | unset or `off`: inert; `loopback`: workers may dial loopback only; a URL: that proxy too, published as `HTTP(S)_PROXY`. A person sets `off` to diagnose a false positive |
 | `CREDLESS_DEMO_KEY_FILE` | the harness (`playwright.config.ts`) or `credless demo` | `apps/demo/src/server.ts`, the demo configs | the 0600 file holding the demo's stand-in runner key; the demo writes it with `--write-key <same path>` and the config's `file` key source reads it |
 
 No other `KIT_*` variable exists without a row here. Nothing secret is ever passed as a CLI argument.

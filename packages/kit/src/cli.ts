@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// The kit's CLI (plan §4.4): init, doctor, run, health, seed, report, evidence, check-tests, demo (mcp in v0.2).
+// The kit's CLI (plan §4.4): init, doctor, run, health, seed, report, evidence, check-tests, demo (mcp in v0.3).
 //
 // The contract: `main(argv)` resolves to an exit code from `EXIT` and never throws for a usage error (it prints one
 // line and returns `EXIT.USAGE`); no shell is spawned anywhere (`execFile`/`spawn` with argv arrays); a secret value

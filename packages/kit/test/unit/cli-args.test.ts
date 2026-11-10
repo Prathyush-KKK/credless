@@ -80,6 +80,9 @@ describe('main', () => {
       ['run', '--target', 'dev', '--workers', 'x'],
       ['health'],
       ['report', 'nope'],
+      ['run', '--target', 'dev', '--judge', 'claude -p'],
+      ['demo', '--judge', '[]'],
+      ['judge'],
       ['evidence', 'scan'],
       ['mcp'],
       ['doctor', '--bogus'],
@@ -201,6 +204,6 @@ describe('main', () => {
     made.push(p);
     const r = cli(p, ['run', '--target', 'dev', '--isolate']);
     expect(r.status).toBe(2);
-    expect(r.stderr).toMatch(/--isolate .* v0\.2/);
+    expect(r.stderr).toMatch(/--isolate .* v0\.3/);
   }, 60_000);
 });

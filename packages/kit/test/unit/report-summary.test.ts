@@ -228,3 +228,87 @@ describe('screenshots', () => {
     expect(await contactSheets(dir)).toEqual({ made: [], problems: [] });
   });
 });
+
+describe('drafts and judged answers in the verdict', () => {
+  const draft = (title: string, errors: string[] = [], skipped = false): object => {
+    const s = spec(title, [], errors) as { tests: Array<Record<string, unknown>> };
+    if (skipped) Object.assign(s.tests[0] ?? {}, { status: 'skipped', expectedStatus: 'skipped' });
+    // as Playwright's JSON report writes it: without the @
+    return { ...s, tags: ['draft'] };
+  };
+  const suiteExit = (dir: string, exitCode: number) =>
+    fs.writeFileSync(path.join(dir, 'suite.json'), JSON.stringify({ exitCode }));
+
+  it('a failing draft is listed apart and neither fails the run nor counts in the totals or the coverage', () => {
+    const dir = runFolder(made, { results: false });
+    writeResults(dir, ['chromium-desktop'], [spec('C01 counts', []), draft('D01 explores', ['Error: not there yet'])]);
+    suiteExit(dir, 1);
+    const result = summary(dir);
+    expect(result.verdict).toBe('pass');
+    expect(result.totals).toMatchObject({ total: 1, passed: 1, failed: 0 });
+    expect(result.drafts).toEqual({ total: 1, ran: 1, failed: 1 });
+    const text = readText(dir, 'SUMMARY.md');
+    expect(text).toContain('- Drafts: 1 (1 ran, 1 failed); never counted');
+    expect(text).toContain('| D01 explores | chromium-desktop | failed | Error: not there yet |');
+    expect(text).not.toContain('## Failures to triage\n\n|');
+    coverage(dir);
+    expect(readText(dir, 'COVERAGE.md')).not.toContain('D01');
+  });
+
+  it('a counted failure still fails the run when a draft failed too; drafts not run are named as such', () => {
+    const dir = runFolder(made, { results: false });
+    writeResults(
+      dir,
+      ['chromium-desktop'],
+      [spec('C01 breaks', [], ['Error: boom']), draft('D01 explores', ['Error: x'])],
+    );
+    suiteExit(dir, 1);
+    expect(summary(dir).verdict).toBe('fail');
+
+    const idle = runFolder(made, { results: false });
+    writeResults(idle, ['chromium-desktop'], [spec('C01 counts', []), draft('D01 explores', [], true)]);
+    expect(summary(idle).verdict).toBe('pass');
+    expect(readText(idle, 'SUMMARY.md')).toContain('1 draft test(s), not run: `run --drafts` runs them.');
+  });
+
+  it('a failed answer fails the run; unjudged ones are listed and fail it only with the gate on', () => {
+    const judged = (dir: string, status: string, ok: boolean, gate = false) => {
+      fs.mkdirSync(path.join(dir, 'judge'), { recursive: true });
+      const cases = [
+        { id: 'A1--owner-chromium', test: 'A1 asks', project: 'chromium', status, score: null, problems: ['why'] },
+      ];
+      const counts = { pass: 0, fail: 0, unsure: 0, unjudged: 0, [status]: 1 };
+      fs.writeFileSync(
+        path.join(dir, 'judge/results.json'),
+        JSON.stringify({ judgedBy: 'none', gate, counts, ok, cases }),
+      );
+    };
+    const failing = runFolder(made);
+    judged(failing, 'fail', false);
+    const failed = summary(failing);
+    expect(failed.verdict).toBe('fail');
+    expect(failed.judge).toMatchObject({ ok: false, counts: { fail: 1 } });
+    expect(readText(failing, 'SUMMARY.md')).toContain('| A1--owner-chromium | A1 asks | chromium | fail | why |');
+
+    const open = runFolder(made);
+    judged(open, 'unjudged', true);
+    expect(summary(open).verdict).toBe('pass');
+    expect(readText(open, 'SUMMARY.md')).toContain(
+      '- Answers a model wrote: 1 recorded answer(s): 1 unjudged (JUDGE.md)',
+    );
+
+    const gated = runFolder(made);
+    judged(gated, 'unjudged', false, true);
+    expect(summary(gated).verdict).toBe('fail');
+  });
+
+  it('answers recorded but never settled (the judge could not write) are named, with the command that settles them', () => {
+    const dir = runFolder(made);
+    fs.mkdirSync(path.join(dir, 'judge/cases'), { recursive: true });
+    fs.writeFileSync(path.join(dir, 'judge/cases/A1--owner-chromium.json'), '{}');
+    expect(summary(dir).verdict).toBe('pass');
+    expect(readText(dir, 'SUMMARY.md')).toContain(
+      '- Answers a model wrote: 1 recorded, not settled: `run` could not judge them; `credless judge 20261008T101500Z-rn01` does',
+    );
+  });
+});

@@ -239,3 +239,32 @@ One line per proposal the v0.1 tasks raised against the frozen interfaces (`docs
   lets an agent request runs from a machine whose person holds the key, and a native lane for mobile apps (a
   one-time-code sign-in route the app redeems without the key). The predecessor's `PATCH` and `PUT` for
   `session.api()` were already here.
+
+## 0.2.0: judged answers and drafts
+
+- Answers a model wrote get three layers (markers in the test, a rubric after the run, the quote check), taken from
+  the predecessor's design. No model runs while a test runs: a test's outcome never depends on a model's latency or
+  rate limit, and the judge's verdict is evidence written into the run before the scrub and scan.
+- The judge stage runs in `run` on the host, between the suite and post-run: the judge command lives on the machine,
+  not in the Playwright image, and what it writes is then scrubbed and scanned with the rest. Post-run reads
+  `judge/results.json` into the verdict. Only the first run of `--twice` is judged.
+- The judge command is a JSON argv, started without a shell, with the prompt on stdin, 120 s per answer, and the
+  environment minus every `CREDLESS_*` name (not the Playwright allowlist: a judge CLI needs its own login, which lives
+  in variables the allowlist drops). The first failure stops asking: one broken command would otherwise cost 120 s
+  per answer. A command that is not found is a usage error before any secret is read or test runs.
+- Precedence: `--no-judge`, `--judge`, then the machine file beside the slot file. No judge in the committed config: a
+  model CLI and its login differ per machine, as the slot does.
+- A failed answer fails the run; unsure and unjudged ones do only with `--judge-gate`, so a team without a judge still
+  gets the markers and a listed rubric. `credless judge <run>` rewrites `JUDGE.md` in a kept folder and does not
+  re-render `SUMMARY.md` (post-run's alone).
+- Drafts: an automatic fixture skips a test tagged `@draft` unless `CREDLESS_DRAFTS=1` (`run --drafts`). The JSON
+  report keeps tags without the `@`, so the report matches both. Drafts are left out of the totals, the coverage and
+  the verdict; a non-zero suite exit is accepted only when every failure is a draft's and there was no run error.
+  Post-run's exit and `run`'s now both follow the summary's verdict, which already holds the suite's exit code.
+- Docker mode starts the container as its image's user, so on Linux the run folder can hold root-owned files the
+  host cannot write into. The judge stage there is not allowed to end the run: an error is reported, the answers
+  stay recorded, `SUMMARY.md` names them as not settled with the `credless judge <run id>` that settles them. Mapping
+  the container to the host user is the real fix, with `--isolate` in v0.3.
+- The predecessor's items still not taken (journeys, the run queue, the native lane) are on the roadmap for v0.3 and
+  later; the earlier v0.2 plans (`--isolate`, the broker as its own process, MCP) move to v0.3. Entries above that
+  say "v0.2" for those mean v0.3 now.

@@ -7,7 +7,7 @@ it returns a `Secret` for every sensitive value and never prints one.
 
 | Interface | What it does | Built-ins in v0.1 |
 |---|---|---|
-| `SessionProvider` | `mint(persona, { api, runId })` returns a `SessionGrant` (cookies and/or a storage state, `expiresAt`, `user`) the fixture injects into the persona's context; `verify?(context)` (v0.2) tells whether the session is still valid so the fixture can re-mint | `test-api` (default: `POST /session` through the broker), `storage-state-file` (a Playwright storage-state file per persona; the weaker option) |
+| `SessionProvider` | `mint(persona, { api, runId })` returns a `SessionGrant` (cookies and/or a storage state, `expiresAt`, `user`) the fixture injects into the persona's context; `verify?(context)` (v0.3) tells whether the session is still valid so the fixture can re-mint | `test-api` (default: `POST /session` through the broker), `storage-state-file` (a Playwright storage-state file per persona; the weaker option) |
 | `StateControl` | `health()`, `ensure(ids)`, `reset(ids)`, `state(id)`, `persona(id)`, `handle(id)`, `address(to)`, `messages(to)`, `waitForMessage(to, match)`, `teardown()`, `cleanupRun()`; apps extend the `Control` class with one-call scenarios and reach `this.api`, `this.track()`, `this.secret()`, `this.handles()` | the core `Control`; the demo's `DemoControl` (`workspace()`) |
 | `KeySource` | `describe()` for `doctor` (never reads a value), `read()` for `run` (returns a `Secret`) | `env`, `file`, `exec` (argv array, no shell; presets `op`, `infisical`, `doppler`, `vault`, `kubectl`), `keyring` (`@napi-rs/keyring`, optional dependency) |
 | `MailSink` | `messages(address, { since, kind, limit })`, `waitFor(address, match, { timeoutMs })`; codes arrive as `Secret` and are registered for masking | `test-api` (default), `mailpit` (`/api/v1/search?query=to:<addr>`, filtered client-side by `Created`) |
@@ -39,7 +39,7 @@ A `module` reference in the config (`session: { provider: 'module', module: './m
 | `test-api` | SessionProvider, MailSink | core | v0.1 |
 | `storage-state-file` | SessionProvider | core | v0.1, documented as the weaker option |
 | `env`, `file`, `exec`, `keyring` | KeySource | core | v0.1 |
-| `mailpit` | MailSink | core | v0.1 (polished in v0.2) |
+| `mailpit` | MailSink | core | v0.1 (polished in v0.3) |
 | Clerk testing tokens | SessionProvider | core | v0.3 |
 | Supabase (service role) | SessionProvider | core | v0.3 |
 | OIDC key sources (GitHub, GitLab CI) | KeySource | core | v0.3 |

@@ -6,7 +6,9 @@ credless is an open-source Playwright toolkit for testing logged-in, multi-user 
 AI coding agents (Claude Code, Cursor, Codex) and people write and run authenticated E2E tests while the long-lived
 credential (the test-API key, a password, a service token) never reaches the agent, the test code or the test
 evidence. Synthetic test users are created on demand, every browser runs behind an egress proxy that refuses
-production, and a run **fails** if a secret value shows up in a trace, a screenshot or a report.
+production, and a run **fails** if a secret value shows up in a trace, a screenshot or a report. Answers your AI
+features write are judged without flaky string matching: markers in the test, a rubric scored after the run by the
+model you choose, and a quote check that throws out any score whose evidence is not in the answer.
 
 [![npm version](https://img.shields.io/npm/v/credless?color=cb3837&logo=npm)](https://www.npmjs.com/package/credless)
 [![Node.js](https://img.shields.io/badge/node-%E2%89%A522.18-339933?logo=node.js&logoColor=white)](https://nodejs.org)
@@ -23,7 +25,7 @@ production, and a run **fails** if a secret value shows up in a trace, a screens
 
 - [Why credless](#why-credless)
 - [Quickstart: the demo in 30 seconds](#quickstart-the-demo-in-30-seconds)
-- [What a test looks like](#what-a-test-looks-like)
+- [What a test looks like](#what-a-test-looks-like) · [Judging AI answers](#judging-answers-a-model-wrote)
 - [Features](#features)
 - [How it works](#how-it-works)
 - [Use it on your app](#use-it-on-your-app)
@@ -71,6 +73,13 @@ npx credless demo --plant-secret
 It plants the demo's stand-in password in the test output on purpose. The scrub redacts it, the scan finds it,
 `SUMMARY.md` says `LEAK`, the run fails, and the command tells you the protection worked.
 
+The demo also has an assistant that answers in prose. Its answer is checked for the right document title (and the
+absence of another workspace's) during the run; give it a judge to score the rest:
+
+```sh
+npx credless demo --judge '["claude","-p"]'   # any command that reads a prompt on stdin and prints JSON
+```
+
 Requirements: Node.js 22.18 or later, `@playwright/test` 1.64 or later. Installs with npm, pnpm, Yarn (classic, or
 Yarn 4 with `nodeLinker: node-modules`; Plug'n'Play is not supported yet) and bun. Nothing in credless needs an
 install script, so `npm ci --ignore-scripts` works.
@@ -102,6 +111,44 @@ test('a removed member loses access to the workspace document', async ({ persona
 No password, token or cookie appears anywhere in the test. `control.workspace()` is the demo app's one-call setup;
 your app adds its own the same way ([extension routes](docs/site/backend.md#extension-routes)).
 
+### Judging answers a model wrote
+
+A chat reply or a generated summary is different on every run, so `toHaveText` is either flaky or meaningless.
+`judgeAnswer()` holds it to three layers, cheapest first:
+
+```ts
+import { judgeAnswer, test } from 'credless';
+
+test('the assistant answers from the documents the member can see, and only those', async ({ personas, control }) => {
+  const mine = await control.workspace({ owner: 'owner', members: ['member'], documents: { owner: 1 } });
+  const theirs = await control.workspace({ owner: 'second-owner', documents: { 'second-owner': 1 } });
+  const [member] = await personas.open('member');
+  await member.goto('/ask');
+  await member.page.getByLabel('Question').fill('Which documents can I see?');
+  await member.page.getByRole('button', { name: 'Ask', exact: true }).click();
+  judgeAnswer({
+    persona: 'member',
+    question: 'Which documents can I see?',
+    answer: await member.page.getByTestId('answer').innerText(),
+    facts: [`The member can see one document, "${mine.document(0).title}".`],
+    must: [mine.document(0).title], // checked now: the test fails at once without it
+    mustNot: [theirs.document(0).title], // a leak across workspaces is never a judgement call
+  }); // the rubric (answers the question, grounded in the facts, honest about gaps) is scored after the run
+});
+```
+
+1. **Markers, in the test.** Words the answer must and must not contain fail the test immediately.
+2. **A rubric, after the run.** A judge you choose scores each criterion 0 to 2 with a quote from the answer: a
+   command (`--judge '["claude","-p"]'`, or a default for your machine in `~/.config/credless/judge`) that reads the
+   prompt on stdin, or an agent that writes verdict files. No model runs while a test runs, and the judge sees the
+   question, the answer and the facts, never a session or a key.
+3. **A quote check.** A score counts only if its quote is in the answer word for word. A judge that invents evidence
+   makes the answer `unsure`, never `pass`.
+
+`SUMMARY.md` lists every answer that did not pass; `JUDGE.md` has the questions, answers, scores and quotes. A failed
+answer fails the run; `--judge-gate` also fails it on answers nobody could score. More in
+[docs/site/judging.md](docs/site/judging.md).
+
 ## Features
 
 - **Personas, not passwords.** A catalog of synthetic roles (`owner`, `member`, `guest`, ...). credless creates one
@@ -122,6 +169,12 @@ your app adds its own the same way ([extension routes](docs/site/backend.md#exte
   kept. A secret value found anywhere fails the run; evidence the pipeline could not finish is deleted.
 - **A report a person can judge in a minute.** `SUMMARY.md`, a coverage table, a flake report from `--twice` (no
   hidden retries) and a contact sheet per browser.
+- **AI answers judged, not string-matched.** `judgeAnswer()` checks must and must-not markers in the test, then a
+  judge model of your choice scores a rubric after the run, and a quote check voids any score whose evidence is not
+  in the answer ([how](#judging-answers-a-model-wrote)).
+- **Drafts that never break the build.** Tag a new or exploratory test `@draft`: it is skipped by default, runs with
+  `run --drafts`, is listed apart in `SUMMARY.md` and never fails the run or counts as coverage. No retries, no
+  quarantine lists.
 - **Built for coding agents.** An [Agent Skill](packages/kit/skills/e2e-testing/SKILL.md) that teaches the testing
   method, a Claude Code plugin with a hook that blocks secret-reading commands, a Cursor rule and an `AGENTS.md`
   snippet.
@@ -247,6 +300,13 @@ The test API mints sessions through your backend's real login code, so it works 
 create a session for a known user. The backend brief covers the pattern; first-class Clerk and Supabase session
 providers are on the [roadmap](#roadmap).
 
+### How do I test an AI chatbot's answers in Playwright without flaky assertions?
+
+Do not string-match text a model wrote. Record it with `judgeAnswer()`: the words it must and must not contain are
+checked in the test, and a rubric (does it answer, is every claim grounded in the facts you give, does it admit gaps)
+is scored after the run by a judge model you pick, with a quote check that voids invented evidence. See
+[Judging answers a model wrote](#judging-answers-a-model-wrote).
+
 ### Why not just use `storageState`?
 
 A `storageState` file is plaintext cookies on disk, produced by a sign-in that needs a password in the test
@@ -279,7 +339,7 @@ what that is.
 What remains, in three sentences. The scan cannot read text inside an image, so a screen that shows a code must be
 masked by selector (`evidence.maskSelectors`, `shot({ mask })`). In native mode the Node worker that runs your test
 code is not network-isolated: the proxy covers the browsers, a lint gate and an advisory shim cover the worker, and
-`run --isolate` (Docker, a network namespace with a sidecar proxy) is planned for v0.2. Evidence retention is yours:
+`run --isolate` (Docker, a network namespace with a sidecar proxy) is planned for v0.3. Evidence retention is yours:
 the GitHub Action keeps reports for 14 days and anyone with read access to the repository can download them.
 
 The threat model, the data classes in the evidence, the claims we make and the ones we do not, and how to report a
@@ -303,9 +363,10 @@ assistants is in [llms.txt](llms.txt).
 
 | Version | What lands | Out |
 |---|---|---|
-| **v0.1** (now) | CLI (`init`, `doctor`, `run`, `health`, `seed`, `report`, `evidence`, `check-tests`, `demo`, `demo --plant-secret`); broker; egress proxy with resolve-then-pin and private-range refusal; canary; test-code lint gate; advisory worker shim; session revocation at cleanup; scrub, scan, quarantine and fail-closed evidence including CTRF, JUnit, blob and the HTML report's embedded zip; Playwright 1.65 `trace.secrets` when available; demo app with the reference test-API server; skill, plugin, hook, templates; the GitHub Action | MCP server, Docker `--isolate`, Clerk and Supabase providers, flake history, OCR, visual diff, mobile |
-| **v0.2** | `run --isolate` (network namespace, sidecar proxy); the broker as its own process; session re-mint on expiry; an MCP server; Mailpit adapter polished; TOTP helper with the secret in the broker; backend brief verified against two external backends; SBOM per release | hosted anything, auto-healing |
-| **v0.3** | Clerk testing-token and Supabase session providers; OIDC key sources for GitHub and GitLab CI; audit export per run; flake history and quarantine list; failure triage in `SUMMARY.md`; `shell --as <persona>` through the same proxy and scrub | |
+| **v0.1** | CLI (`init`, `doctor`, `run`, `health`, `seed`, `report`, `evidence`, `check-tests`, `demo`, `demo --plant-secret`); broker; egress proxy with resolve-then-pin and private-range refusal; canary; test-code lint gate; advisory worker shim; session revocation at cleanup; scrub, scan, quarantine and fail-closed evidence including CTRF, JUnit, blob and the HTML report's embedded zip; Playwright 1.65 `trace.secrets` when available; demo app with the reference test-API server; skill, plugin, hook, templates; the GitHub Action | MCP server, Docker `--isolate`, Clerk and Supabase providers, flake history, OCR, visual diff, mobile |
+| **v0.2** (now) | Answers a model wrote: `judgeAnswer()` with markers, a rubric scored after the run by a judge command or agent, the quote check, `JUDGE.md`, `run --judge`, `--judge-gate`, `credless judge <run>`; `@draft` tests and `run --drafts`; visible-only `see()`; WebKit guard rules; a contract check that every route requires the key | |
+| **v0.3** | `run --isolate` (network namespace, sidecar proxy); the broker as its own process; session re-mint on expiry; an MCP server; a run queue so an agent requests runs from a machine whose person holds the key; journeys (user flows as data); Mailpit adapter polished; TOTP helper with the secret in the broker; backend brief verified against two external backends; SBOM per release | hosted anything, auto-healing |
+| **v0.4** | Clerk testing-token and Supabase session providers; OIDC key sources for GitHub and GitLab CI; audit export per run; flake history and quarantine list; failure triage in `SUMMARY.md`; `shell --as <persona>` through the same proxy and scrub | |
 | **v1.0** | Core contract 1.0 (frozen routes, versioned header); config schema 1.0; adapter interfaces frozen; Node 26 in engines; threat model reviewed externally; 90 days without a breaking change | hosted dashboard, visual regression, mobile native, auto-healing |
 
 ## Contributing

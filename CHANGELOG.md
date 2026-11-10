@@ -3,9 +3,27 @@
 All notable changes to credless. The project follows [Semantic Versioning](https://semver.org); while it is 0.x, a
 minor version may change the contract, the config schema or an adapter interface, and the entry says how to move.
 
-## Unreleased
+## 0.2.0 (unreleased)
 
-Fixes found by the predecessor's later runs, ported without its app-specific parts.
+Answers a model wrote are judged, not string-matched; drafts never break the build.
+
+- **`judgeAnswer()`** records an answer an AI feature wrote (a chat reply, a summary) with the question, the facts it
+  is graded against, and markers. Markers (`must`, `mustNot`) are checked in the test at once; a rubric
+  (`GROUNDED_ANSWER` by default: answers, grounded, honest-gaps) is scored after the run; a score counts only when its
+  quote is in the answer word for word, so a judge that invents evidence makes the answer `unsure`, never `pass`.
+- **The judge stage** runs on the machine after the suite and before the scrub and scan: a verdict file an agent wrote
+  (`judge/verdicts/`), else the judge command (`run --judge '["claude","-p"]'`, or this machine's
+  `~/.config/credless/judge`), which gets the prompt on stdin and the environment without any `CREDLESS_*` name.
+  `JUDGE.md` and `judge/results.json` in the run; a line and a table in `SUMMARY.md`. A failed answer fails the run;
+  `--judge-gate` fails it on unsure and unjudged ones too; `--no-judge` turns a machine default off.
+- **`credless judge <run id>`** settles a kept run again, for verdicts an agent wrote after it or with a command.
+- **Drafts**: a test tagged `@draft` is skipped unless `run --drafts`; drafts are listed apart in `SUMMARY.md`, never
+  fail the run and never count as coverage.
+- The demo has an assistant (`/ask`) that answers in prose, and spec A1 records its answer; `credless demo --judge`
+  scores it. The skill has a reference for writing judged tests and for scoring as the judge agent.
+- The roadmap's next items (`run --isolate`, the broker as its own process, an MCP server, ...) move to v0.3.
+
+Fixes found by the predecessor's later runs, ported without its app-specific parts:
 
 - `see()` looks at visible matches only: an app that keeps an earlier screen mounted and hidden no longer makes it
   wait on the hidden copy of the text.

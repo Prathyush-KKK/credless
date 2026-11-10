@@ -46,7 +46,7 @@
   }
   const go = (path) => { history.pushState({}, '', path); route(); };
   let me = null;
-  const nav = () => '<nav><a href="/">Home</a><a href="/search">Search</a></nav>';
+  const nav = () => '<nav><a href="/">Home</a><a href="/search">Search</a><a href="/ask">Ask</a></nav>';
 
   async function route() {
     const path = location.pathname;
@@ -86,6 +86,7 @@
     if (!me) return go('/login');
     if (path === '/') return home();
     if (path === '/search') return search();
+    if (path === '/ask') return ask();
     const ws = path.match(/^\/w\/(\d+)(\/members|\/link)?$/);
     if (ws) {
       const id = Number(ws[1]);
@@ -174,6 +175,19 @@
     };
     q.addEventListener('keydown', (e) => { if (e.key === 'Enter') run(); });
     document.getElementById('go').addEventListener('click', run);
+  }
+
+  function ask() {
+    h(`${nav()}<h1>Ask</h1><label for="question">Question</label><input id="question" placeholder="Ask about your documents"><button id="ask-go">Ask</button><div id="answer" data-testid="answer" role="status"></div>`);
+    const question = document.getElementById('question');
+    const answer = document.getElementById('answer');
+    const run = async () => {
+      answer.textContent = '';
+      const r = await api('/api/assistant', { method: 'POST', body: JSON.stringify({ question: question.value }) });
+      answer.textContent = r.ok ? r.body.answer : (r.error ? r.error.message : 'The assistant could not answer');
+    };
+    question.addEventListener('keydown', (e) => { if (e.key === 'Enter') run(); });
+    document.getElementById('ask-go').addEventListener('click', run);
   }
 
   async function documentPage(id) {

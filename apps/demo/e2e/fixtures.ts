@@ -3,7 +3,7 @@
 import { test as base, type StateControl } from 'credless';
 import type { DemoControl } from './demo.control.ts';
 
-export { about, clearSecretField, expect, notSee, see, typeSecret } from 'credless';
+export { about, clearSecretField, expect, judgeAnswer, notSee, see, typeSecret } from 'credless';
 export type { DocumentRef, WorkspaceFixture } from './demo.control.ts';
 
 export const test = base.extend<{ control: DemoControl }>({

@@ -11,6 +11,8 @@ reports/<run id>/
   COVERAGE.md           one row per about(source, expected): which case each test proves, with its outcome per browser
   FLAKES.md             --twice only: tests whose outcome differed between the two runs
   QUARANTINED.md        only if a file was deleted because a finding survived the scrub
+  JUDGE.md              only if a test recorded an answer with judgeAnswer(): every answer, its outcome, scores and quotes
+  judge/cases/<answer>.json  judge/verdicts/<answer>.json  judge/results.json   what the judge read and decided
   run.json              run metadata: target, endpoints, slot, versions, git sha, health, cleanup result, exit code; no secrets
   suite.json            Playwright's own exit code, kept apart from post-run's verdict
   scan.json             files scanned, findings by file and kind (never a value), quarantined files
@@ -26,8 +28,10 @@ reports/<run id>/
 Top to bottom: **verdict** (`pass`, `fail`, `unsafe`) and the exit code; **totals** (total, passed, failed, flaky,
 skipped, expected failures); **failures to triage**, each with the test title, the project and its triage shot;
 **scan** (`clean`, or `findings` with the count of quarantined files and of leaked values; any leaked value above 0
-is a `fail`); the **contact sheets**; `--twice` adds the flake comparison. One minute is enough to decide whether to
-look further.
+is a `fail`); the **contact sheets**; `--twice` adds the flake comparison. A run that recorded answers a model wrote
+adds a line with their outcomes and a table of every answer that did not pass ([judging](judging.md)); a run with
+`@draft` tests adds a **Drafts** section, apart from the totals and the verdict: a draft that passes twice in a row is
+ready to lose its tag. One minute is enough to decide whether to look further.
 
 ## Reading the contact sheet
 

@@ -13,6 +13,7 @@ the evidence. Start with the [quickstart](quickstart.md).
 | [CLI](cli.md) | Every command and exit code |
 | [Backend](backend.md) | What your backend builds: the seven routes behind five locks |
 | [Evidence](evidence.md) | The folder, `SUMMARY.md`, the contact sheet, how to triage |
+| [Judging AI answers](judging.md) | `judgeAnswer()`: markers in the test, a rubric after the run, the quote check, judge commands |
 | [Agents](agents.md) | The skill, the Claude Code plugin, Cursor, `AGENTS.md`, and the rules the agent follows |
 | [Security](security.md) | The short form of [SECURITY.md](../../SECURITY.md) |
 | [FAQ](faq.md) | Why not `storageState`, why a broker, is it a sandbox (no), and the name |

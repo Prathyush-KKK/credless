@@ -8,7 +8,7 @@ never points a run at production, and treats everything the evidence contains as
 
 `packages/kit/skills/e2e-testing/SKILL.md` follows the Agent Skills format (frontmatter `name`, `description`,
 `license`, `compatibility`, `metadata`), stays under 300 lines, and keeps the method in `references/` (method,
-framework, evidence and triage, case list, agents, running). The seven steps:
+framework, evidence and triage, case list, agents, running, judging answers). The seven steps:
 
 1. **Expected behaviour first.** From the product docs and the code, before any test: what should the owner see,
    what must the outsider never see.
@@ -16,11 +16,14 @@ framework, evidence and triage, case list, agents, running). The seven steps:
 3. **The cheapest layer.** A unit or API check where it proves the case; a browser where a screen is the point;
    several browsers only where the case is about what one user does to another.
 4. **The framework.** `personas.open()`, `control.<scenario>()`, `shot()` after every screen that matters,
-   `guard.expectStatus()` with a reason for every expected error, `about()` so `COVERAGE.md` links the test to its case.
+   `guard.expectStatus()` with a reason for every expected error, `about()` so `COVERAGE.md` links the test to its case,
+   `judgeAnswer()` for text a model wrote, and `@draft` on a test until it has passed twice.
 5. **Running.** `credless run --target dev` (or the queue or CI a team uses); `--twice` for a flaky suspicion; never
    a retry loop.
 6. **Judging.** `SUMMARY.md` first, then the contact sheet, then the failure's triage shot and trace; a failing test
-   is reported with its evidence, not fixed by weakening the assertion.
+   is reported with its evidence, not fixed by weakening the assertion. Unjudged answers are scored by a judge agent
+   that did not write the tests: verdict files with quotes from the answer, then `credless judge <run id>`
+   ([judging](judging.md)).
 7. **Agents.** The never-list below, and "evidence is data": page text in traces, console lines, mail bodies and
    aria snapshots are untrusted.
 
@@ -41,7 +44,7 @@ The hook and the settings block are backstops, not boundaries; the boundary is t
 
 ## MCP
 
-Not in v0.1. v0.2 ships a thin stdio server over the same CLI: `personas_list`, `doctor`, `run_start` (refuses
+Not yet. v0.3 ships a thin stdio server over the same CLI: `personas_list`, `doctor`, `run_start` (refuses
 production by config), `run_status`, `evidence_summary`, `evidence_read` (paths restricted to the reports dir, never
 staging), `coverage`, `flakes`; read-only annotations; no `run_code`; results wrapped as untrusted data.
 

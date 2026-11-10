@@ -11,6 +11,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { CLI_NAME } from '../brand.ts';
+import { judgeLine } from '../judge/judge.ts';
+import { judgeStage } from '../judge/stage.ts';
 import {
   DEFAULTS,
   ENV,
@@ -35,6 +37,7 @@ import {
   inWork,
   playwrightVersion,
 } from './docker.ts';
+import { onPath } from './doctor.ts';
 import { acquireRunLock, LockHeldError } from './lock.ts';
 import { missingKeyMessage } from './messages.ts';
 import { findProject } from './project.ts';
@@ -102,7 +105,7 @@ export async function run(input: RunInput): Promise<ExitCode> {
     return EXIT.USAGE;
   };
 
-  if (input.isolate) return usage('--isolate (a run with no route to the network but the egress proxy) lands in v0.2');
+  if (input.isolate) return usage('--isolate (a run with no route to the network but the egress proxy) lands in v0.3');
   if (input.workers !== undefined && !(Number.isInteger(input.workers) && input.workers >= 1 && input.workers <= 99)) {
     return usage('--workers must be a number from 1 to 99');
   }
@@ -182,6 +185,15 @@ export async function run(input: RunInput): Promise<ExitCode> {
     if (mode === 'docker' && !image.pinned)
       say(`image ${image.tag} is unpinned (no digest in the runner's table for Playwright ${pwVersion})`);
 
+    // A judge command that cannot start is found now, before any secret is read or any test runs.
+    const judge = input.judge?.length ? input.judge : null;
+    if (judge) {
+      const [file = ''] = judge;
+      const found = /[\\/]/.test(file) ? fs.existsSync(path.resolve(cwd, file)) : onPath(file, env);
+      if (!found)
+        return usage(`the judge command "${file}" was not found: install it, fix --judge, or pass --no-judge`);
+    }
+
     // Secrets. Nothing inherited from the caller reaches anything this process starts, whatever the target: the
     // sign-in password is taken over into a file; the key is read from the key source for a remote target only.
     const password = env[ENV.SIGNIN_PASSWORD]?.trim() || null;
@@ -231,6 +243,7 @@ export async function run(input: RunInput): Promise<ExitCode> {
       if (keyFile) runEnv[ENV.RUNNER_KEY_FILE] = inRun(mode, staging.dir, keyFile);
       if (passwordFile) runEnv[ENV.SIGNIN_PASSWORD_FILE] = inRun(mode, staging.dir, passwordFile);
       if (input.workers) runEnv[ENV.WORKERS] = String(input.workers);
+      if (input.drafts) runEnv[ENV.DRAFTS] = '1';
       const pwArgs = ['test', ...(input.project ? ['--project', input.project] : []), ...(input.playwrightArgs ?? [])];
       if (mode === 'native') {
         const base = childEnvironment(env, { ...input.extraEnv, ...runEnv, [ENV.EVIDENCE_KEY]: evidenceKey });
@@ -271,6 +284,25 @@ export async function run(input: RunInput): Promise<ExitCode> {
       runB = newRunId();
       const second = await runOnce(runB);
       if (second !== 0) suiteExit = second;
+    }
+
+    // The judge, on this machine even when the suite ran in the image (the judge command lives here), and before
+    // post-run, so the verdicts and JUDGE.md are scrubbed and scanned with the rest. The first run's answers only.
+    // A judge that cannot write into the run (files a root container wrote, on Linux) leaves the answers recorded but
+    // unsettled; SUMMARY.md says so and `credless judge <run id>` settles them later. The run goes on either way.
+    try {
+      const judged = await judgeStage({
+        runDir: staging.runDir(runA),
+        command: judge,
+        gate: input.judgeGate,
+        env,
+        log: say,
+      });
+      if (judged) out.write(`${CLI_NAME}: judge: ${judgeLine(judged)}\n`);
+    } catch (error) {
+      say(
+        `judge: the answers could not be settled (${message(error)}); \`${CLI_NAME} judge ${runA}\` settles them later`,
+      );
     }
 
     // Post-run where the tests ran, as its own process: it scrubs by value, so the values go to it as one more file
@@ -330,7 +362,8 @@ export async function run(input: RunInput): Promise<ExitCode> {
     const kept = path.join(reportsRoot, runA);
     staging.keep(runA, kept);
     if (runB) staging.keep(runB, path.join(reportsRoot, runB));
-    const code: ExitCode = suiteExit === 0 && postExit === EXIT.PASS ? EXIT.PASS : EXIT.FAIL;
+    // Post-run's verdict already holds the suite's exit code, the judged answers and drafts that do not count.
+    const code: ExitCode = postExit === EXIT.PASS ? EXIT.PASS : EXIT.FAIL;
     out.write(
       `\n${CLI_NAME} ${runA}: ${code === EXIT.PASS ? 'PASS' : 'FAIL'} (target ${input.target}, slot ${slot})\n  summary: ${path.join(kept, EVIDENCE.summary)}\n`,
     );

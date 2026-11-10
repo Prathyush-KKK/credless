@@ -32,7 +32,7 @@ personas:
     role: member
     firstName: Ben
     purpose: Joins a workspace by mail invite, uploads into it, and is removed by the owner.
-    usedBy: [W1, W3, F01]
+    usedBy: [W1, W3, F01, A1]
 
   guest:
     role: guest
@@ -44,7 +44,7 @@ personas:
     role: owner
     firstName: Dev
     purpose: Owns a second workspace, for isolation between workspaces and a join into someone else's.
-    usedBy: [F02]
+    usedBy: [F02, A1]
 
   signin:
     role: member

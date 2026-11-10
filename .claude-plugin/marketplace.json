@@ -12,7 +12,7 @@
       "name": "credless",
       "source": "./plugins/credless",
       "description": "The e2e-testing skill (expected behaviour first, case list, cheapest layer, the framework, running, judging, agents) and a PreToolUse hook that refuses commands which would read the kit's staging dir, .env files, a process environment or a secret manager. A backstop, not a boundary.",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "category": "testing",
       "keywords": ["playwright", "e2e", "testing", "personas", "agents", "secrets", "evidence"]
     }

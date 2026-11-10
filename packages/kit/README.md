@@ -50,6 +50,10 @@ test('an outsider never sees the team document', async ({ personas, control }) =
   WebSockets and WebRTC included; DNS pinned; private addresses refused; a canary proves the proxy is in the path.
 - **Leak-proof evidence**: scrubbed in four encodings (zips inside the HTML report included), scanned, fail closed;
   `SUMMARY.md`, a coverage table, a flake report and a contact sheet per browser.
+- **AI answers judged, not string-matched**: `judgeAnswer()` checks must and must-not markers in the test; a judge
+  model you choose scores a rubric after the run (`run --judge '["claude","-p"]'`); a score counts only if its quote is
+  in the answer.
+- **Drafts**: a test tagged `@draft` runs only with `run --drafts`, is listed apart and never fails the run.
 - **Agent surfaces**: an Agent Skill, a Claude Code plugin with a secret-blocking hook, a Cursor rule, an `AGENTS.md`
   snippet, and a GitHub Action.
 
@@ -60,7 +64,7 @@ pnpm, Yarn (classic, or Yarn 4 with `nodeLinker: node-modules`; not Plug'n'Play 
 
 | Import | What it gives you |
 |---|---|
-| `credless` | `test`, `expect`, `about`, `typeSecret`, `clearSecretField`, `see`, `notSee`, `Secret`, types |
+| `credless` | `test`, `expect`, `about`, `judgeAnswer`, `GROUNDED_ANSWER`, `typeSecret`, `clearSecretField`, `see`, `notSee`, `Secret`, types |
 | `credless/config` | `defineConfig`, `kitPlaywrightConfig` |
 | `credless/adapters` | the adapter interfaces, `Control`, the built-in key, session and mail adapters |
 | `credless/server` | `createTestApi`, the reference test-API handler for Node backends |

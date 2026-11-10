@@ -445,6 +445,11 @@ export class DemoState {
     return [...this.docs.values()].filter((d) => d.workspaceId === w.id && !d.deleted);
   }
 
+  /** Every document this person can see, in the order they were added. */
+  visibleDocuments(handle: string): Doc[] {
+    return [...this.docs.values()].filter((d) => this.canSee(handle, d));
+  }
+
   search(handle: string, q: string): Doc[] {
     const needle = q.trim().toLowerCase();
     if (!needle) return [];

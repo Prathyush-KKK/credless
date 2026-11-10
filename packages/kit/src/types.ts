@@ -68,7 +68,12 @@ export const ENV = {
   WORKER_PROXY_URL: `${ENV_PREFIX}WORKER_PROXY_URL`,
   /** the 0600 file holding the demo's stand-in runner key: the demo writes it (`--write-key`), the demo configs' `file` key source reads it */
   DEMO_KEY_FILE: `${ENV_PREFIX}DEMO_KEY_FILE`,
+  /** `1` runs the tests tagged `@draft` (`run --drafts`); otherwise they are skipped. Never counted as coverage */
+  DRAFTS: `${ENV_PREFIX}DRAFTS`,
 } as const;
+
+/** The tag that makes a test a draft (`test('x', { tag: '@draft' }, ...)`): run only with `run --drafts`, listed apart, never counted. */
+export const DRAFT_TAG = '@draft';
 
 /** The name of one kit environment variable, for example `'CREDLESS_TARGET'`. */
 export type EnvName = (typeof ENV)[keyof typeof ENV];
@@ -392,7 +397,7 @@ export interface BrowserProjectConfig {
 export interface DockerConfig {
   /** the Playwright image, pinned by digest in the runner; a different tag here is refused by `doctor` unless it is pinned */
   image?: string;
-  /** v0.2: run with no route to the network except the sidecar egress proxy */
+  /** v0.3: run with no route to the network except the sidecar egress proxy */
   isolate?: boolean;
 }
 
@@ -751,7 +756,7 @@ export interface Broker {
 export interface SessionProvider {
   name: string;
   mint(persona: Persona, ctx: { api: TestApiClient; runId: string }): Promise<SessionGrant>;
-  /** v0.2: tells whether the context's session is still valid, so the fixture can re-mint on expiry */
+  /** v0.3: tells whether the context's session is still valid, so the fixture can re-mint on expiry */
   verify?(context: BrowserContext): Promise<boolean>;
 }
 
@@ -1247,6 +1252,10 @@ export interface Summary {
   contactSheets: string[];
   flakes?: FlakeReport;
   durationMs: number;
+  /** the answers a model wrote, when the run recorded any (JUDGE.md) */
+  judge?: { counts: Record<'pass' | 'fail' | 'unsure' | 'unjudged', number>; ok: boolean; gate: boolean };
+  /** the tests tagged `@draft`: never in the totals or the verdict */
+  drafts?: { total: number; ran: number; failed: number };
 }
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -1274,13 +1283,19 @@ export interface RunOptions {
   /** run the suite twice and compare (FLAKES.md) */
   twice?: boolean;
   mode?: RunMode;
-  /** v0.2, docker mode only */
+  /** v0.3, docker mode only */
   isolate?: boolean;
   project?: string;
   /** minutes to wait for the target+slot lock */
   waitMinutes?: number;
   /** passed through to `playwright test` after `--` */
   playwrightArgs?: string[];
+  /** run the tests tagged `@draft` too: listed apart, never failing the run, never counted as coverage */
+  drafts?: boolean;
+  /** the judge command (an argv) that scores the answers the run recorded; null or absent: nobody scores them */
+  judge?: readonly string[] | null;
+  /** answers left unsure or unjudged fail the run too */
+  judgeGate?: boolean;
 }
 
 export interface DoctorOptions {
@@ -1290,7 +1305,7 @@ export interface DoctorOptions {
   security?: boolean;
 }
 
-/** Options the kit's Playwright reporter takes (reporter/index.ts, v0.2). */
+/** Options the kit's Playwright reporter takes (reporter/index.ts, v0.3). */
 export interface KitReporterOptions {
   outputDir?: string;
   /** emit ctrf.json through the optional CTRF reporter when it is installed */

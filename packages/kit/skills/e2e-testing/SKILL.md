@@ -4,7 +4,7 @@ description: Test a signed-in or multi-user web feature end to end with credless
 license: Apache-2.0
 compatibility: Needs the credless CLI (Node 24+ or Docker), a target whose backend serves the credless test API, and a persona catalog. Works in Claude Code (as a plugin), Codex, Cursor and any Agent Skills client.
 metadata:
-  version: "0.1.0"
+  version: "0.2.0"
 ---
 
 # Testing a signed-in feature with credless
@@ -103,6 +103,12 @@ test('W3 a removed member loses access to the workspace document', async ({ pers
 - Check the server's answer as well (`session.api(path)`, `control.state(id)`): a screen can hide data the API
   still returns.
 - Put the words a test looks for in one module per app and import them; copy changes then cost one edit.
+- Text a model wrote (a chat reply, a summary) is never string-matched. Record it with
+  `judgeAnswer({ persona, question, answer, facts, must, mustNot })`: the markers fail the test now, the rubric is
+  scored after the run, and only quotes from the answer count. Write `facts` as the whole truth the answer is graded
+  against. `references/judging-answers.md`.
+- A new or exploratory test carries `{ tag: '@draft' }` until it has passed in two runs; drafts run with `--drafts`,
+  are listed apart, never fail the run and never count as coverage.
 - Test code imports only from `credless` and your own helpers: no `playwright`, no `node:` network or file modules,
   no bare `fetch()`, no `process.env`. `credless check-tests` refuses them because each one is a way around the
   persona's egress proxy or the evidence pipeline.
@@ -115,6 +121,7 @@ One command, through the CLI, never Playwright directly:
 credless doctor --target staging            # tools, slot, key source by presence, target reachable; reads no value
 credless run --target staging -g W3         # the suite, or the cases matching -g
 credless run --target staging --twice       # twice, with FLAKES.md
+credless run --target staging --drafts      # the @draft tests too, listed apart
 ```
 
 The CLI reads the key itself, hands it to the broker and unsets it; you never see it, and `credless doctor` tells
@@ -130,7 +137,9 @@ Read `SUMMARY.md` of the run first, then the contact sheets, then `COVERAGE.md`.
 **app bug**, **test bug**, **environment**, **spec question**. Look at the screenshots yourself: a passing test with
 a wrong screenshot (a boot cover, a blank page, a sign-in page, the wrong persona) is a failure, because it proved
 nothing. Report a coverage table plus findings with screenshot paths, as `code:` items (to fix) and `product:` items
-(to decide). Format: `references/evidence-and-triage.md`.
+(to decide). Format: `references/evidence-and-triage.md`. When the run recorded answers a model wrote, read
+`JUDGE.md` too; an `unjudged` answer is scored by a judge (a command, or you as the judge agent, never the agent that
+wrote the test): `references/judging-answers.md`.
 
 ### 7. Agents
 
@@ -148,4 +157,4 @@ challenges the evidence before anything is reported as passing. `references/agen
 - Evidence of a run: `reports/<run id>/` (`evidence.reportsDir`), moved there only after it was scrubbed and
   scanned. The private staging dir where a run lives while it runs is not yours to read.
 - References: `references/method.md` (the seven steps in depth), `framework.md`, `case-list.md`, `running.md`,
-  `evidence-and-triage.md`, `agents.md`.
+  `evidence-and-triage.md`, `agents.md`, `judging-answers.md`.

@@ -174,7 +174,7 @@ An array of `{ name, use, metadata? }`; each becomes a Playwright project with `
 | Field | Meaning |
 |---|---|
 | `image` | the Playwright image; the runner pins it by digest, and `doctor` refuses a different tag unless it is pinned |
-| `isolate` | v0.2: run with no route to the network except the sidecar egress proxy |
+| `isolate` | v0.3: run with no route to the network except the sidecar egress proxy |
 
 ## Environment variables
 
@@ -195,6 +195,7 @@ The CLI sets the run-scoped ones; a person or CI sets the rest. No other `CREDLE
 | `CREDLESS_EVIDENCE_KEY` | CLI (random per run) | HMAC key for the list of codes to mask; never written |
 | `CREDLESS_SCRUB_VALUES_FILE` | CLI | NUL-separated values post-run scrubs; read once and deleted |
 | `CREDLESS_WORKERS` | CLI (`--workers`) | worker count |
+| `CREDLESS_DRAFTS` | CLI (`--drafts`) | `1` runs the tests tagged `@draft` |
 | `CREDLESS_TRACE` | person | `off`, `retain-on-failure`, `on` |
 | `CREDLESS_GUARD_OUTSIDE` | person | `fail` (default) or `note` |
 | `CREDLESS_A11Y` | person | `gate` makes serious and critical axe findings fail |
