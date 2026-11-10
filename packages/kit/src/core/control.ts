@@ -31,6 +31,9 @@ export type Remover = (id: string) => Promise<void>;
 
 const capitalise = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
 
+/** A persona reset's own timeout: it deletes every handle's data, and parallel workers reset at the same moment. */
+const RESET_TIMEOUT_MS = 120_000;
+
 /**
  * The protected surface matches {@link ControlInternals} (`api`, `track`, `untrack`, `secret`, `handles`); it is
  * protected rather than declared with `implements` because TypeScript cannot implement an interface with
@@ -116,8 +119,11 @@ export class Control implements StateControl {
 
   async reset(ids: string[]): Promise<void> {
     if (ids.length === 0) return;
+    // A reset deletes every handle's data at once, and parallel workers reset theirs together at the start: it gets
+    // longer than the client's default for one call.
     await this.api.call<{ reset: ResetResult[] }>('resetPersonas', {
       body: { handles: ids.map((id) => this.handle(id)) },
+      timeoutMs: RESET_TIMEOUT_MS,
     });
     for (const id of ids) this.touched.delete(id);
   }

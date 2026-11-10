@@ -114,7 +114,10 @@ describe('personas and the contract calls', () => {
     expect(calls.at(-1)).toEqual({ operationId: 'personaState', request: { params: { handle: 'a0.owner' } } });
     c.touched.add('owner');
     await c.reset(['owner']);
-    expect(calls.at(-1)).toEqual({ operationId: 'resetPersonas', request: { body: { handles: ['a0.owner'] } } });
+    expect(calls.at(-1)).toEqual({
+      operationId: 'resetPersonas',
+      request: { body: { handles: ['a0.owner'] }, timeoutMs: 120_000 },
+    });
     expect(c.touched.size).toBe(0);
     expect(await c.cleanupRun()).toEqual({ removed: { workspaces: 2 }, sessionsRevoked: 3 });
     expect(calls.at(-1)).toEqual({
@@ -264,7 +267,10 @@ describe('teardown and the protected surface', () => {
       { thingId: 't-gone' },
       { thingId: 't1' },
     ]);
-    expect(calls.at(-1)).toEqual({ operationId: 'resetPersonas', request: { body: { handles: ['a0.owner'] } } });
+    expect(calls.at(-1)).toEqual({
+      operationId: 'resetPersonas',
+      request: { body: { handles: ['a0.owner'] }, timeoutMs: 120_000 },
+    });
     expect(c.created.size).toBe(0);
     expect(c.touched.size).toBe(0);
     expect(await c.teardown()).toEqual([]);

@@ -114,7 +114,8 @@ A sink that is not wired reports `false`; the kit refuses a real run until all a
 An app adds its own routes under the same base path in its own OpenAPI file (the demo's
 `apps/demo/contract/demo.openapi.yaml` adds workspaces, invites and documents), lists their operationIds in
 `health.extensions`, and applies the same five locks, the same key, the same audit line and the same test-account
-rule to each. Typical extensions: "create a workspace with these members and this many documents, return its id and
+rule to each. The file says so too: `security: [{ runnerKey: [] }]` at the top and no operation that overrides it (an
+OpenAPI file without it reads as routes that need no key; the repository's contract check refuses one). Typical extensions: "create a workspace with these members and this many documents, return its id and
 the invite code once", "expire this invite", "run this sweeper now, scoped to the run". On the kit's side the app's
 `Control` class calls them and tracks what it created for teardown; a code returned once is wrapped as a secret and
 masked in every screenshot.

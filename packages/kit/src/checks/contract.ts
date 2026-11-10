@@ -1,7 +1,8 @@
 // `check:contract`: the client, the contracts and the reference server agree. The client's core routes
 // (CORE_ROUTES) are exactly the core contract's; every route of core plus the app's contract has a handler with the
-// same operationId, method and path; the server serves nothing the contracts do not name; and no path sits outside
-// the base path (contract paths are relative to it, and both files declare the same base path).
+// same operationId, method and path; the server serves nothing the contracts do not name; no path sits outside the
+// base path (contract paths are relative to it, and both files declare the same base path); and every route of both
+// files requires the runner key (`security: []` or `[{}]` on one operation would drop it unseen).
 import fs from 'node:fs';
 import YAML from 'yaml';
 import { loadContractRoutes, mergeRoutes } from '../core/routes.ts';
@@ -26,6 +27,33 @@ export interface ContractCheckResult {
 }
 
 const line = (r: { method: string; path: string }) => `${r.method} ${r.path}`;
+
+/** The one security requirement a test-API route may carry: the runner key, as `securitySchemes.runnerKey`. */
+const RUNNER_KEY_ONLY = JSON.stringify([{ runnerKey: [] }]);
+const METHODS = ['get', 'put', 'post', 'delete', 'options', 'head', 'patch', 'trace'];
+
+/** A default that is not the runner key, and every operation whose own `security` is anything else. */
+function securityProblems(file: string): string[] {
+  const doc = YAML.parse(fs.readFileSync(file, 'utf8')) as {
+    security?: unknown;
+    paths?: Record<string, Record<string, { operationId?: string; security?: unknown }>>;
+  } | null;
+  const problems: string[] = [];
+  if (JSON.stringify(doc?.security) !== RUNNER_KEY_ONLY) {
+    problems.push(`${file}: the default security must be the runner key only (security: [{ runnerKey: [] }])`);
+  }
+  for (const [route, item] of Object.entries(doc?.paths ?? {})) {
+    for (const [method, op] of Object.entries(item ?? {})) {
+      if (!METHODS.includes(method) || op?.security === undefined) continue;
+      if (JSON.stringify(op.security) !== RUNNER_KEY_ONLY) {
+        problems.push(
+          `${file}: ${method.toUpperCase()} ${route} (${op.operationId ?? 'no operationId'}) sets security ${JSON.stringify(op.security)}; every test-API route requires the runner key`,
+        );
+      }
+    }
+  }
+  return problems;
+}
 
 function serverBasePaths(file: string): string[] {
   const doc = YAML.parse(fs.readFileSync(file, 'utf8')) as { servers?: Array<{ url?: string }> } | null;
@@ -72,7 +100,11 @@ export function checkContracts(input: ContractCheckInput): ContractCheckResult {
     }
   }
 
-  // 3. Core and app merge without a clash (same operationId on two lines, or two operationIds on one line).
+  // 3. Every route requires the runner key, in both files.
+  problems.push(...securityProblems(input.coreFile));
+  if (input.appFile) problems.push(...securityProblems(input.appFile));
+
+  // 4. Core and app merge without a clash (same operationId on two lines, or two operationIds on one line).
   let merged: RouteTable = core;
   try {
     merged = mergeRoutes(core, app);
@@ -80,7 +112,7 @@ export function checkContracts(input: ContractCheckInput): ContractCheckResult {
     problems.push(error instanceof Error ? error.message : String(error));
   }
 
-  // 4. The reference server serves exactly the contracts' routes.
+  // 5. The reference server serves exactly the contracts' routes.
   for (const [id, route] of Object.entries(merged)) {
     const served = input.handlerRoutes[id];
     if (!served) problems.push(`the server does not implement ${id} (${line(route)})`);

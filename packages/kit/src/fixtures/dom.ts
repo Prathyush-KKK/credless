@@ -31,12 +31,15 @@ export async function ready(page: Page, bootCover?: string, timeout = 20_000): P
 }
 
 /**
- * Visible somewhere in the page or the locator (substring for strings). A secret is looked for but never printed:
- * the failure says only its label.
+ * Visible somewhere in the page or the locator (substring for strings). Only visible matches count: an app often
+ * keeps an earlier screen mounted and hidden, and its copy of the text must not be the one looked at. A secret is
+ * looked for but never printed: the failure says only its label.
  */
 export async function see(scope: Page | Locator, text: TextMatch, timeout = 10_000): Promise<void> {
   const value = plain(text);
-  const locator = typeof value === 'string' ? scope.getByText(value, { exact: false }) : scope.getByText(value);
+  const locator = (
+    typeof value === 'string' ? scope.getByText(value, { exact: false }) : scope.getByText(value)
+  ).filter({ visible: true });
   if (!isSecretValue(text)) {
     await expect(locator.first(), `"${label(text)}" is on screen`).toBeVisible({ timeout });
     return;

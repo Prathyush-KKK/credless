@@ -97,6 +97,9 @@ export interface AttachedGuard extends Guard {
 /** How long the guard waits for a JSON body before judging an API answer on its status alone. */
 const BODY_WAIT_MS = 1500;
 
+/** How long WebKit's page error for a fetch is held while the guard waits to see whether a navigation cancelled it. */
+const CANCELLED_COPY_MS = 2000;
+
 async function jsonWithin(response: Response, ms: number): Promise<unknown> {
   let timer: NodeJS.Timeout | undefined;
   const expired = new Promise<undefined>((resolve) => {
@@ -112,6 +115,8 @@ async function jsonWithin(response: Response, ms: number): Promise<unknown> {
 
 function describe(request: Request): string {
   const url = new URL(request.url());
+  // A blob URL's pathname is the whole URL it was minted under: origin plus pathname would print it twice.
+  if (url.protocol === 'blob:') return `${request.method()} blob:${url.pathname}`;
   return `${request.method()} ${url.origin}${url.pathname}`;
 }
 
@@ -276,15 +281,35 @@ export async function attachGuard(context: BrowserContext, options: GuardOptions
       }
     }
     if (/net::ERR_BLOCKED_BY_CLIENT/.test(text)) return;
+    // WebKit's console copy of a fetch that failed or was cancelled: the requestfailed handler judges the request.
+    if (/^TypeError: Load failed$/.test(text.trim())) return;
     if (consoleAllowed(text)) return;
     const first = text.split('\n')[0] ?? '';
     violation(`console error: ${first.length > 300 ? `${first.slice(0, 160)} ... ${first.slice(-120)}` : first}`);
+  };
+  // WebKit also raises a page error for a fetch that a navigation cancelled ("... <url> due to access control
+  // checks"). The request is judged on requestfailed, listed under cancelled or failed there, so this copy is held
+  // briefly: it is dropped once a cancelled request for that URL is listed, and stays a violation otherwise.
+  const cancelledCopy = (first: string): boolean => {
+    const named = /(https?:\/\/[^\s?#]+)/.exec(first)?.[1]?.replace(/[.,;:)]+$/, '');
+    if (!named) return false;
+    const listed = () => cancelled.some((c) => c.endsWith(` ${named}`));
+    if (listed()) return true;
+    const line = redact(`[${options.label}] page error: ${first}`);
+    violations.push(line);
+    setTimeout(() => {
+      const at = violations.indexOf(line);
+      if (at >= 0 && listed()) violations.splice(at, 1);
+    }, CANCELLED_COPY_MS).unref?.();
+    return true;
   };
   const judgePageError = (error: Error) => {
     const key = `${error.name}|${error.message}|${error.stack ?? ''}`;
     if (judgedErrors.has(key)) return;
     judgedErrors.add(key);
-    violation(`page error: ${error.message.split('\n')[0]}`);
+    const first = error.message.split('\n')[0] ?? '';
+    if (/due to access control checks/.test(first) && cancelledCopy(first)) return;
+    violation(`page error: ${first}`);
   };
 
   const watch = (page: Page) => {
@@ -300,6 +325,12 @@ export async function attachGuard(context: BrowserContext, options: GuardOptions
     // A navigation (often the test's own goto or reload) cancels requests still in flight: listed, not a failure.
     // Real network failures (refused, DNS, TLS, timeouts) still fail the test.
     if (/ERR_ABORTED|NS_BINDING_ABORTED|cancelled|Load request cancelled/i.test(failure)) {
+      cancelled.push(describe(request));
+      return;
+    }
+    // Playwright's WebKit has no PDF viewer: a PDF the app made into a blob and framed ends as an interrupted frame
+    // load. The app fetched the PDF itself (that made the blob), so this is listed with the cancelled, not failed.
+    if (/Frame load interrupted/i.test(failure) && request.url().startsWith('blob:')) {
       cancelled.push(describe(request));
       return;
     }

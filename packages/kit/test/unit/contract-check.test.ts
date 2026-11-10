@@ -56,6 +56,7 @@ describe('check:contract', () => {
       [
         'openapi: 3.1.0',
         "servers: [{ url: '{origin}/_other' }]",
+        'security: [{ runnerKey: [] }]',
         'paths:',
         '  /_test/widgets:',
         '    get: { operationId: listWidgets }',
@@ -73,6 +74,26 @@ describe('check:contract', () => {
     fs.rmSync(dir, { recursive: true, force: true });
   });
 
+  test('a route that drops the runner key, or a default that is not the key, is a problem', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kit-contract-'));
+    try {
+      const text = fs.readFileSync(appFile, 'utf8');
+      const keyless = path.join(dir, 'keyless.yaml');
+      // one operation opts out with `security: []`, the other way a key silently stops being sent
+      fs.writeFileSync(keyless, text.replace(/(\n {6}operationId: getWorkspace\n)/, '$1      security: []\n'));
+      expect(checkContracts({ coreFile, appFile: keyless, handlerRoutes: served() }).problems).toEqual([
+        `${keyless}: GET /workspaces/{id} (getWorkspace) sets security []; every test-API route requires the runner key`,
+      ]);
+      const noDefault = path.join(dir, 'no-default.yaml');
+      fs.writeFileSync(noDefault, text.replace(/\nsecurity:\n {2}- runnerKey: \[\]\n/, '\nsecurity: []\n'));
+      expect(checkContracts({ coreFile, appFile: noDefault, handlerRoutes: served() }).problems).toEqual([
+        `${noDefault}: the default security must be the runner key only (security: [{ runnerKey: [] }])`,
+      ]);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   test('an extension that reuses a core operationId on another line is a clash', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'contract-check-'));
     const file = path.join(dir, 'app.openapi.yaml');
@@ -81,6 +102,7 @@ describe('check:contract', () => {
       [
         'openapi: 3.1.0',
         "servers: [{ url: '{origin}/_test' }]",
+        'security: [{ runnerKey: [] }]',
         'paths:',
         '  /health2:',
         '    get: { operationId: health }',

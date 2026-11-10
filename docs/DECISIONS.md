@@ -225,3 +225,17 @@ One line per proposal the v0.1 tasks raised against the frozen interfaces (`docs
   `--engine ts` exits 2 saying why. Checked from the packed package in a project with typescript@7.0.2.
 - Not taken now: `@napi-rs/keyring` 2.1.2 (optional, ships to users, three days old at the time; 2.1.1 stays until
   a release has aged), Biome 2.6 (a day old), `@types/node` 26 (the types should match the Node floor, 22).
+
+## From the predecessor's later work (Nov 2026)
+
+- The predecessor went on to a 0.4 line. Taken now, as fixes: visible-only `see()`, the theme set once, the guard's
+  WebKit rules (a navigation-cancelled fetch's page error is held two seconds and dropped only when a cancelled
+  request for that URL is listed, so a real access-control failure still fails), the persona reset's own timeout,
+  and the contract check's security rule. A unit test drives the guard's new rules through a stand-in context
+  (WebKit itself is not installed where the self-tests run); self-test P09 covers `see()` in Chromium.
+- Not taken yet, each a feature rather than a fix: a judge for answers a model wrote (markers in the test, a rubric
+  scored after the run by a command, a quote check that voids any score whose quote is not in the answer), journeys
+  (user flows as YAML, with drafts and a failed step's screen kept as text), a `--drafts` flag, a job queue that
+  lets an agent request runs from a machine whose person holds the key, and a native lane for mobile apps (a
+  one-time-code sign-in route the app redeems without the key). The predecessor's `PATCH` and `PUT` for
+  `session.api()` were already here.

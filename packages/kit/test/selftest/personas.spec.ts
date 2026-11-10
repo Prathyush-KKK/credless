@@ -115,3 +115,25 @@ test.describe('signed out', () => {
     await p.shot('signed-out');
   });
 });
+
+test.describe('dom helpers', () => {
+  test('P09 see() finds the visible copy of a text that a hidden, still-mounted screen holds first', async ({
+    personas,
+  }) => {
+    const [owner] = await personas.open('owner');
+    await owner.goto('/');
+    await see(owner.page, owner.persona.firstName);
+    // An app keeps an earlier screen mounted and hidden (a stack navigator, a cached tab): its copy comes first.
+    await owner.page.evaluate(() => {
+      const hidden = document.createElement('div');
+      hidden.hidden = true;
+      hidden.textContent = 'Kept-mounted marker';
+      const shown = document.createElement('div');
+      shown.textContent = 'Kept-mounted marker';
+      document.body.prepend(hidden);
+      document.body.append(shown);
+    });
+    await see(owner.page, 'Kept-mounted marker', 2000);
+    await owner.shot('visible-copy');
+  });
+});

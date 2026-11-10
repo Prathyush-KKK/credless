@@ -62,6 +62,7 @@ import { egressPolicyFor, type KitEgressProxy, startEgressProxy } from './egress
 import { SensitiveText, shotPath, takeShot } from './evidence.ts';
 import { attachGuard, GuardKnobStore } from './guard.ts';
 import { PersonaSession } from './persona-session.ts';
+import { keepOrSetTheme } from './theme.ts';
 
 /** Options the kit's own self-tests set with `test.use()`; a real suite never does. */
 export interface KitSelfTestOptions {
@@ -313,13 +314,7 @@ export const test: KitTest = base.extend<KitTestFixtures & KitSelfTestOptions, K
       if (scoped.length) await context.addCookies(scoped);
       if (theme) {
         // The project's theme, under the key most apps read; the project's colorScheme covers the rest.
-        await context.addInitScript((value: string) => {
-          try {
-            window.localStorage.setItem('theme', value);
-          } catch {
-            // storage unavailable: the page follows prefers-color-scheme
-          }
-        }, theme);
+        await context.addInitScript(keepOrSetTheme, theme);
       }
       const attached = await attachGuard(context, {
         policy,

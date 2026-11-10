@@ -3,6 +3,21 @@
 All notable changes to credless. The project follows [Semantic Versioning](https://semver.org); while it is 0.x, a
 minor version may change the contract, the config schema or an adapter interface, and the entry says how to move.
 
+## Unreleased
+
+Fixes found by the predecessor's later runs, ported without its app-specific parts.
+
+- `see()` looks at visible matches only: an app that keeps an earlier screen mounted and hidden no longer makes it
+  wait on the hidden copy of the text.
+- The project's theme is stored in the browser only while it holds none, so a theme the test switches to in the
+  app survives the next page load.
+- The guard on WebKit: its console and page-error copies of a fetch that a navigation cancelled are not counted as
+  violations of their own (the request is still judged), a framed PDF blob WebKit cannot display is listed with the
+  cancelled requests, and a blob URL is printed once (`blob:<url>`).
+- A persona reset gets 120 s instead of the client's 30 s: parallel workers reset their personas at the same moment.
+- The contract check requires the runner key on every route of the core and extension contracts; the backend brief
+  says an extension contract declares it.
+
 ## 0.1.0
 
 First public release.
